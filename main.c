@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_DEPRECATE        // fopen(), fscanf() warnings
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -5,16 +6,15 @@
 #include "matrix.h"
 #include "dist.h"
 
-
 double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variableNames[10][25]);
 Matrix loadX(int numVar, int sampleSize, double * data);
 Matrix loadY(int numVar, int sampleSize, double * data);
 void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[17], double * coefficientMetrics);
 void printModel(char varNames[10][25], double modelMetrics[17], double * coefficientMetrics, int numVar);
 
-int main(void) {
-  int i, j;
-  char response = '0';
+int main(int argc, char **argv)
+{
+  char response = '0', *fin;
   char varNames[10][25];
   double modelMetrics[17];
   double * coefficientMetrics;
@@ -25,9 +25,9 @@ int main(void) {
   double errStdDev;
   double * errStdDevPtr = &errStdDev;
 
-  FILE* text = fopen("health_data.txt", "r");
+  FILE* text = fopen(fin = (1 == argc) ? "../../../health_data.txt" : argv[1], "r");
   if(text == NULL) {
-    printf("Unable to open data file.");
+    printf("Unable to open data file '%s'.", fin);
     return 1;
   }
 
@@ -48,7 +48,7 @@ int main(void) {
   printf("*                                                                            *\n");
   printf("* NB: Max number of variables is 10.                                         *\n");
   printf("*                                                                            *\n");
-  printf("* Press enter to see a demonstration using sample data.                      *\n");
+  printf("* Press enter for sample data statistics.                                    *\n");
   printf("*                                                                            *\n");
   printf("******************************************************************************\n");
   

@@ -1,17 +1,30 @@
 # Multiple-Linear-Regression
 A tool for multiple linear regression analysis. 
 
-Background:
-Multiple linear regression is a statistical technique for analysing the linear relationships between a 'dependent' variable and several 'explanatory' variables. For instance, in the field of economics MLR models may be used to help understand relationships between economic growth, interest rates and unemployment.
+#### Background:
+[Multiple linear regression](https://www.statology.org/multiple-linear-regression/) (MLS) estimates linear relationships  
+between a 'dependent' variable and several 'independent' variables.
 
-How does this tool work?:
-The program takes a .txt file of sample data and reads the data into mathematical matrices (implemented as a C struct). Using the Ordinary Least Squares (OLS) method, an equation is generated which describes the relationship between the first variable in the data file, and the remaining variables. Model statistics are then calculated to determine the significance and accuracy of this relationship. 
+For photomicography, instead of fitting [high order polynomials](https://github.com/blekenbleu/CorrCA) or [cubic with radial symmetry](https://lensfun.github.io/calibration-tutorial/lens-tca.html),  
+consider multiple linear regression, replacing its linear kernel with a bicubic:  
+ &emsp; `CAxy = a + b*x + c*x*x + d*x*x*x + e*y + f*y*y + g*y*y*y + h*y*x`
+
+While more complex than [typical radially symmetric Transverse Chromatic Aberration](https://lensfun.github.io/calibration-tutorial/lens-tca.html) (TCA) models:  
+ &emsp; `CAr = a * r^4 + b * r^3 + c * r^2 + v * r`  
+.. MLS anticipates photomicography issues:
+- possible stage tilt, introducing some LoCA, presenting as asymmetric TCA
+- imperfect, misaligned and uncentered optics
+
+#### How does this tool work?:
+The program reads a sample data file into numeric matrices (implemented as a C struct);  
+it contains dependent and associated independent variable values.  
+[Ordinary Least Squares](https://www.datacamp.com/tutorial/ols-regression) (OLS) generates coeffiecients  
+relating dependent variables to remaining independent variables.  
+Model statistics are then calculated for significance and accuracy of this relationship. 
 
 
-
-Example output:
-
-
+#### Example output:
+```
     ******************************************************************************
     *                                                                            *
     * Title: Multiple Linear Regression                                          *
@@ -51,3 +64,4 @@ Example output:
      Height  |   3.090048   0.2573415    12.008   0.000       2.585659    3.594437
      Const   |  -127.8199      12.099   -10.565   0.000      -151.5339   -104.1059
     ------------------------------------------------------------------------------
+```
