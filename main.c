@@ -9,145 +9,9 @@
 double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variableNames[10][25]);
 Matrix loadX(int numVar, int sampleSize, double * data);
 Matrix loadY(int numVar, int sampleSize, double * data);
-void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[17], double * coefficientMetrics);
 void printModel(char varNames[10][25], double modelMetrics[17], double * coefficientMetrics, int numVar);
 
-int main(int argc, char **argv)
-{
-  char response = '0', *fin;
-  char varNames[10][25];
-  double modelMetrics[17];
-  double * coefficientMetrics;
-  int numVar = 0;
-  int * numVarPtr = &numVar;
-  int sampleSize = 0;
-  int * sampleSizePtr = &sampleSize;
-  double errStdDev;
-  double * errStdDevPtr = &errStdDev;
-
-  FILE* text = fopen(fin = (1 == argc) ? "../../../health_data.txt" : argv[1], "r");
-  if(text == NULL) {
-    printf("Unable to open data file '%s'.", fin);
-    return 1;
-  }
-
-  printf("******************************************************************************\n");
-  printf("*                                                                            *\n");
-  printf("* Title: Multiple Linear Regression                                          *\n");
-  printf("* Description:  This program takes an inputted data file and performs        *\n");
-  printf("*               multiple linear regression analysis on the data.             *\n");
-  printf("* Author:       Oscar Zealley                                                *\n");
-  printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
-  printf("*               this program. Data must be formatted like this:              *\n");
-  printf("*                                                                            *\n");
-  printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
-  printf("*                   4,                      5,                    8,...      *\n");
-  printf("*                   7,                     12,                    5,...      *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                                                                            *\n");
-  printf("* NB: Max number of variables is 10.                                         *\n");
-  printf("*                                                                            *\n");
-  printf("* Press enter for sample data statistics.                                    *\n");
-  printf("*                                                                            *\n");
-  printf("******************************************************************************\n");
-  
-  getchar();
-
-  double * data = readData(text, numVarPtr, sampleSizePtr, varNames);
-  coefficientMetrics = (double*)malloc(sizeof(double) * 6 * (numVar));
-  Matrix x = loadX(numVar, sampleSize, data);
-  Matrix y = loadY(numVar, sampleSize, data);
-  free(data);
-
-  regress(x, y, numVar, sampleSize, modelMetrics, coefficientMetrics);
- 
-  printModel(varNames, modelMetrics, coefficientMetrics, numVar);
-  
-  free(x.data);
-  free(y.data);
-  return 0;
-}
-
-double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variableNames[10][25])
-{
-  char varString[100];
-  fscanf(fp, "%[^\n]", varString);
-  varString[99] = '\0';
-
-  int i, j, ctr;
-  j = 0; 
-  ctr = 0;
-  for(i = 0; i <= (strlen(varString)); i++){
-    if(varString[i] == ','||varString[i] == '\0') {
-        variableNames[ctr][j]='\0';
-        ctr++;
-        j = 0;
-    }
-    else {
-      variableNames[ctr][j]=varString[i];
-      j++;
-    }
-  }
-  int size = 100;
-  double tempDouble;
-  double * data = malloc(sizeof(double) * size);
-  if(data == NULL) exit(1);
-  i = 0;
-  while(fscanf(fp,"%lf,", &tempDouble) != EOF) {
-    if(i >= size - 1) {
-      size += 100;
-      data = realloc(data, size * sizeof(double));
-      if(data == NULL) exit(1);
-    }
-    if(i == 0 || (i % (ctr + 1)) == 0 ) {
-      data[i] = 1.0;
-      i++;
-    }
-    data[i] = tempDouble;
-    i++;
-  }
-  *sampleSizePtr = i/(ctr + 1);
-  *numVarPtr = ctr;
-
-  return data;
-}
-
-Matrix loadX(int numVar, int sampleSize, double * data)
-{
-  Matrix result;
-  result.rows = sampleSize;
-  result.cols = numVar;
-  result.data = (double *)calloc(result.rows * result.cols, sizeof(double));
-  int i,j;
-  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
-    if((i - 1) % (numVar + 1) != 0) {
-      result.data[j] = data[i];
-      j++;
-    }
-  }
-
-  return result;
-}
-
-Matrix loadY(int numVar, int sampleSize, double * data)
-{
-  Matrix result;
-  result.rows = sampleSize;
-  result.cols = 1;
-  result.data = (double *)calloc(result.rows * result.cols, sizeof(double));
-  int i,j;
-  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
-    if((i - 1) % (numVar + 1) == 0) {
-      result.data[j] = data[i];
-      j++;
-    }
-  }
-
-  return result;
-}
-
-void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[15], double * coefficientMetrics)
+static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[15], double * coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
@@ -287,6 +151,149 @@ void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics
   free(residuals.data);
   free(stdErrMatrix.data);
   free(Yhat.data);
+}
+
+int main(int argc, char **argv)
+{
+  char response = '0', *fin;
+  char varNames[10][25];
+  double modelMetrics[17];
+  double * coefficientMetrics;
+  int numVar = 0;
+  int * numVarPtr = &numVar;
+  int sampleSize = 0;
+  int * sampleSizePtr = &sampleSize;
+
+//FILE* text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
+  FILE* text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
+  if(text == NULL) {
+    printf("Unable to open data file '%s'.", fin);
+    return 1;
+  }
+
+  printf("******************************************************************************\n");
+  printf("*                                                                            *\n");
+  printf("* Title: Multiple Linear Regression                                          *\n");
+  printf("* Description:  This program takes an inputted data file and performs        *\n");
+  printf("*               multiple linear regression analysis on the data.             *\n");
+  printf("* Author:       Oscar Zealley                                                *\n");
+  printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
+  printf("*               this program. Data must be formatted like this:              *\n");
+  printf("*                                                                            *\n");
+  printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
+  printf("*                   4,                      5,                    8,...      *\n");
+  printf("*                   7,                     12,                    5,...      *\n");
+  printf("*                   .                       .                     .          *\n");
+  printf("*                   .                       .                     .          *\n");
+  printf("*                                                                            *\n");
+  printf("* NB: Max number of variables is 10.                                         *\n");
+  printf("*                                                                            *\n");
+  printf("* Press enter for sample data statistics.                                    *\n");
+  printf("*                                                                            *\n");
+  printf("******************************************************************************\n");
+  
+  response = getchar();
+
+  double * data = readData(text, numVarPtr, sampleSizePtr, varNames);
+  coefficientMetrics = (double*)malloc(sizeof(double) * 6 * (numVar));
+  Matrix x = loadX(numVar, sampleSize, data);
+  Matrix y = loadY(numVar, sampleSize, data);
+  free(data);
+
+  regress(x, y, numVar, sampleSize, modelMetrics, coefficientMetrics);
+ 
+  printModel(varNames, modelMetrics, coefficientMetrics, numVar);
+  
+  free(x.data);
+  free(y.data);
+  return 0;
+}
+
+double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variableNames[10][25])
+{
+  char varString[100];
+  int i = fscanf(fp, "%[^\n]", varString);
+  varString[99] = '\0';
+
+  int j, ctr;
+  size_t l = strlen(varString);
+  j = 0; 
+  ctr = 0;
+  for(i = 0; i <= l; i++){
+    if(varString[i] == ','||varString[i] == '\0') {
+        variableNames[ctr][j]='\0';
+        ctr++;
+        j = 0;
+    }
+    else {
+      variableNames[ctr][j]=varString[i];
+      j++;
+    }
+  }
+  int size = 100;
+  double tempDouble;
+  double * data = malloc(sizeof(double) * size);
+  if(data == NULL) exit(1);
+  i = 0;
+  while(fscanf(fp,"%lf,", &tempDouble) != EOF) {
+    if(i >= size - 1) {
+      double* more;
+      size += 100;
+      if (NULL == (more = realloc(data, size * sizeof(double))))
+      {
+          free(data);
+          exit(1);
+      }
+      else data = more;
+    }
+    if(NULL != data && i == 0 || (i % (ctr + 1)) == 0 ) {
+      data[i] = 1.0;
+      i++;
+    }
+    if (NULL != data)
+      data[i] = tempDouble;
+    i++;
+  }
+  *sampleSizePtr = i/(ctr + 1);
+  *numVarPtr = ctr;
+
+  return data;
+}
+
+Matrix loadX(int numVar, int sampleSize, double * data)
+{
+    Matrix result = { 0 };
+  result.rows = sampleSize;
+  result.cols = numVar;
+  size_t size = result.rows;
+  size *= result.cols;
+  result.data = (double *)calloc(size, sizeof(double));
+  int i,j;
+  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
+    if((i - 1) % (numVar + 1) != 0) {
+      result.data[j] = data[i];
+      j++;
+    }
+  }
+
+  return result;
+}
+
+Matrix loadY(int numVar, int sampleSize, double * data)
+{
+    Matrix result = { 0 };
+  result.rows = sampleSize;
+  result.cols = 1;
+  result.data = (double *)calloc(result.rows, sizeof(double));
+  int i,j;
+  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
+    if((i - 1) % (numVar + 1) == 0) {
+      result.data[j] = data[i];
+      j++;
+    }
+  }
+
+  return result;
 }
 
 void printModel(char varNames[10][25], double modelMetrics[17], double * coefficientMetrics, int numVar)

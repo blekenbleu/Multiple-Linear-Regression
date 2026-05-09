@@ -6,20 +6,24 @@
 
 Matrix initMatrix(int rows, int cols)
 {
-  Matrix result;
+  Matrix result = { 0 };
   result.rows = rows;
   result.cols = cols;
-  result.data = (double *)calloc(rows * cols, sizeof(double));
+  size_t size = result.rows;
+  size *= result.cols;
+  result.data = (double *)calloc(size, sizeof(double));
 
   return result;
 }
 
 Matrix loadMatrix(int rows, int cols, double * elements)
 {
-  Matrix result;
+  Matrix result = { 0 };
   result.rows = rows;
   result.cols = cols;
-  result.data = (double *)calloc(rows * cols, sizeof(double));
+  size_t size = result.rows;
+  size *= result.cols;
+  result.data = (double *)calloc(size, sizeof(double));
 
   for(int i = 0; i < rows * cols; i++) {
     result.data[i] = elements[i];
@@ -30,7 +34,7 @@ Matrix loadMatrix(int rows, int cols, double * elements)
 
 void printMatrix(Matrix m)
 {
-  printf("\nRows: %d\tColumns: %d\n", m.rows, m.cols);
+  printf("\nRows: %d\tColumns: %d\n", (int)m.rows, (int)m.cols);
   for(int i = 0; i < m.rows; i++) {
     printf("| ");
     for(int j = 0; j < m.cols; j++) {
@@ -118,7 +122,7 @@ int squareMatrix(Matrix m, double square[25][25])
 Matrix inverseMatrix(Matrix m)
 {
   double squareTemp [25][25];
-  memset(squareTemp, 0, 25 * 25 *sizeof(double));
+  memset(squareTemp, 0, 625 * sizeof(double)); // 25 * 25
   Matrix result = initMatrix(m.rows,m.rows);
   int n = squareMatrix(m, squareTemp);
   double d = determinant(squareTemp, n);
@@ -193,7 +197,7 @@ Matrix stdErr(Matrix x, double errStdDev)
 //Inverse matrix functions from : http://scanftree.com/programs/c/c-program-to-find-the-inverse-of-the-matrix/
 
 double determinant(double a[25][25], double k) {
-	double s = 1, det = 0, b[25][25];
+	double s = 1, det = 0, b[25][25] = { 0 };
 	int i, j, m, n, c;
 	if (k == 1) {
 		return (a[0][0]);
@@ -223,7 +227,7 @@ double determinant(double a[25][25], double k) {
 }
  
 void cofactors(double num[25][25], double f) {
-	double b[25][25], fac[25][25];
+	double b[25][25] = { 0 }, fac[25][25] = { 0 };
 	int p, q, m, n, i, j;
 	for (q = 0; q < f; q++) {
 		for (p = 0; p < f; p++) {
@@ -249,8 +253,8 @@ void cofactors(double num[25][25], double f) {
 }
  
 void trans(double num[25][25], double fac[25][25], double r) {
-	int i, j;
-	double b[25][25], inv[25][25], d;
+	int i, j = 0;
+	double b[25][25] = { 0 }, inv[25][25] = { 0 }, d;
 	for (i = 0; i < r; i++) {
 		for (j = 0; j < r; j++) {
 			b[i][j] = fac[j][i];
