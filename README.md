@@ -2,16 +2,19 @@
 A tool for multiple linear regression analysis. 
 
 #### Background:
-[Multiple linear regression](https://www.statology.org/multiple-linear-regression/) (MLS) estimates linear relationships  
+[Multiple linear regression](https://www.statology.org/multiple-linear-regression/)
+(MLS) estimates linear relationships  
 between a 'dependent' variable and several 'independent' variables.
 
-For photomicography, instead of fitting [high order polynomials](https://github.com/blekenbleu/CorrCA) or [cubic with radial symmetry](https://lensfun.github.io/calibration-tutorial/lens-tca.html),  
+For photomicography, instead of fitting [high order polynomials](https://github.com/blekenbleu/CorrCA)
+or [cubic with radial symmetry](https://lensfun.github.io/calibration-tutorial/lens-tca.html),  
 consider multiple linear regression, replacing its linear kernel with a bicubic:  
- &emsp; `CAxy = a + b*x + c*x*x + d*x*x*x + e*y + f*y*y + g*y*y*y + h*y*x`
+ &emsp; `CAxy = a + b*x + c*x*x + d*x*x*x + e*y + f*y*y + g*y*y*y + h*abs(y*x)`
 
-While more complex than [typical radially symmetric Transverse Chromatic Aberration](https://lensfun.github.io/calibration-tutorial/lens-tca.html) (TCA) models:  
+While more complex than [typical radially symmetric Transverse Chromatic
+Aberration](https://lensfun.github.io/calibration-tutorial/lens-tca.html) (TCA) models:  
  &emsp; `CAr = a * r^4 + b * r^3 + c * r^2 + v * r`  
-.. MLS anticipates photomicography issues:
+.. this MLS anticipates photomicography issues:
 - possible stage tilt, introducing some LoCA, presenting as asymmetric TCA
 - imperfect, misaligned and uncentered optics
 
