@@ -194,7 +194,11 @@ int main(int argc, char **argv)
   
   response = getchar();
 
-  double * data = readData(text, numVarPtr, sampleSizePtr, varNames);
+  double *data = readData(text, numVarPtr, sampleSizePtr, varNames);
+
+  if (NULL == data)
+      return -1;
+
   coefficientMetrics = (double*)malloc(sizeof(double) * 6 * (numVar));
   Matrix x = loadX(numVar, sampleSize, data);
   Matrix y = loadY(numVar, sampleSize, data);
@@ -209,7 +213,12 @@ int main(int argc, char **argv)
   return 0;
 }
 
-double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variableNames[10][25])
+static double *gpdata(FILE *fp, int rows, int col)
+{
+	return NULL;
+}
+
+double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char variableNames[10][25])
 {
   char varString[100];
   int i = fscanf(fp, "%[^\n]", varString);
@@ -217,6 +226,29 @@ double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char variable
 
   int j, ctr;
   size_t l = strlen(varString);
+
+  if (7 < l && 0 == strncmp("# rows ", varString, 7)) // intercept gnuplot data
+  {
+    char *endptr;
+	int rows = strtol(7 + varString, &endptr, 10);
+
+	if ('\0' != endptr)
+	{
+		*numVarPtr = 8;
+		*sampleSizePtr = rows;
+		strcpy(variableNames[0], "Rd");	// dependent variable: R or B center delta
+		strcpy(variableNames[1], "Gx");	// only truly independent variables are Gx and Gy
+		strcpy(variableNames[2], "Gx2");	// others are not LINEARLY independent... 
+		strcpy(variableNames[3], "Gx3");
+		strcpy(variableNames[4], "Gy");
+		strcpy(variableNames[5], "Gy2");
+		strcpy(variableNames[6], "Gy3");
+		strcpy(variableNames[7], "Gxy");
+		
+		return gpdata(fp, rows, 2);	// 2 - 5 are columns for Rdx - Bdy
+	}
+  }
+
   j = 0; 
   ctr = 0;
   for(i = 0; i <= l; i++){
