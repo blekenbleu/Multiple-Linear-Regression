@@ -121,7 +121,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
 	coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
 	i++;
 	//t test p-value
-	coefficientMetrics[i] = 0; //PLACEHOLDER - FIND FUNCTION TO CALCUALTE T DIST
+	coefficientMetrics[i] = critical_value(1);
 	i++;
 	//Confidence inteval lower
 	coefficientMetrics[i] = coefficientMetrics[i-4] - 1.96 * coefficientMetrics[i-3];
@@ -143,7 +143,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
   i++;
   //t test p-value
-  coefficientMetrics[i] = 0; //PLACEHOLDER - FIND FUNCTION TO CALCUALTE T DIST
+  coefficientMetrics[i] = critical_value(1);
   i++;
   //Confidence inteval lower
   coefficientMetrics[i] = coefficientMetrics[i-4] - 1.96 * coefficientMetrics[i-3];
@@ -330,10 +330,10 @@ void printModel(char *varNames[10], double modelMetrics[17], double * coefficien
   /*
    * Print model metrics
    */
-  printf("\n\n Source  |  Sum of        df     Mean                  %7d observations", (int)modelMetrics[0]);
+  printf("\n\n Source  |  Sum of        df     Mean   0.05 significance, %d observations", (int)modelMetrics[0]);
   printf("\n         |  Squares            Squares                 F(%3d,%6d) =  %6.5g",
    (int)modelMetrics[1], (int)modelMetrics[2], modelMetrics[3]);
-  printf("\n---------+------------------------------   significant Model if 0.05 > F p-value");
+  printf("\n---------+------------------------------       significant if 0.05 > F p-value");
   printf("\n Model   |  %10.9g %5d  %10.9g               F p-value     =  %6.4lf",
    modelMetrics[4], (int)modelMetrics[5], modelMetrics[6], modelMetrics[7]);
   printf("\n Error   |  %10.9g %5d  %10.9g               R-squared     =  %6.4lf",
@@ -348,7 +348,7 @@ void printModel(char *varNames[10], double modelMetrics[17], double * coefficien
   char *s;
   printf(s = "\n------------------------------------------------------------------------------");
   vnprint(varNames[i = 0]);
-  printf("|      Coef.   Std. Err.       t     P>|t|       [95%% Conf. Interval]%s", s);
+  printf("|      Coef.   Std. Err.   t-value  P >|t|       [95%% Conf. Interval]%s", s);
   for (k = 0; k < numVar; k++)
   {
 	vnprint(k == numVar - 1 ? "Const" : varNames[++i]);
