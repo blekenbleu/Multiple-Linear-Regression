@@ -90,7 +90,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   double mf, F = MSR / MSE;
   modelMetrics[3] = mf = modelMetrics[6] / modelMetrics[10];
 
-  // F-test p-value
+  // F-test p-value                        F            k            (sampleSize - numVar)
   modelMetrics[7] = gsl_cdf_fdist_P(modelMetrics[3], modelMetrics[1], modelMetrics[2]);
 
   //R squared
