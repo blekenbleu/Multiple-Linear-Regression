@@ -8,8 +8,7 @@
 #include "t_test.h"
 
 double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char *varNames[10]);
-Matrix loadX(int numVar, int sampleSize, double * data);
-Matrix loadY(int numVar, int sampleSize, double * data);
+void loadXY(int numVar, int sampleSize, double *data, Matrix *xp, Matrix *yp);
 void printModel(char *varNames[10], double modelMetrics[17], double * coefficientMetrics, int numVar);
 
 static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[15], double * coefficientMetrics)
@@ -205,9 +204,9 @@ int main(int argc, char **argv)
   if (NULL == data)
 	  return -1;
 
-  coefficientMetrics = (double*)malloc(sizeof(double) * 6 * (numVar));
-  Matrix x = loadX(numVar, sampleSize, data);
-  Matrix y = loadY(numVar, sampleSize, data);
+  coefficientMetrics = (double *)malloc(sizeof(double) * 6 * numVar);
+  Matrix x = {0}, y = {0}, *xp = &x, *yp = &y;
+  loadXY(numVar, sampleSize, data, xp, yp);
   free(data);
 
   regress(x, y, numVar, sampleSize, modelMetrics, coefficientMetrics);
@@ -225,12 +224,12 @@ static double *gpdata(FILE *fp, int rows, int col)
 }
 
 char varString[100];
-double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[10])
+double *readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[10])
 {
   int i = fscanf(fp, "%[^\n]", varString);
   varString[99] = '\0';
 
-  int j, ctr;
+  int j, columns;
   size_t l = strlen(varString);
 
   if (7 < l && 0 == strncmp("# rows ", varString, 7)) // intercept gnuplot data
@@ -255,11 +254,11 @@ double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[
 	}
   }
 
-  for(ctr = i = j = 0; i <= l; i++)
+  for(columns = i = j = 0; i <= l; i++)
 	if(varString[i] == ',' || varString[i] == '\0')
 	{
 		varString[i] = '\0';	
-  		varNames[ctr++] = j + varString;
+  		varNames[columns++] = j + varString;
 		j = 1 + i;		// next varNames
 	}
 
@@ -269,63 +268,43 @@ double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[
   if(data != NULL)
   for (i = 0; fscanf(fp,"%lf,", &tempDouble) != EOF; i++) {
 	if(i >= size - 1) {
-	  double* more;
 	  size += 100;
-	  if (NULL == (more = realloc(data, size * sizeof(double))))
+	  double *more = realloc(data, size * sizeof(double));
+	  if (NULL == more)
 	  {
 		  free(data);
 		  exit(1);
+	  } else {
+		data = more;
+		data[i] = tempDouble;
 	  }
-	  else data = more;
-	}
-	if(NULL != data && i == 0 || (i % (ctr + 1)) == 0 ) {
-	  data[i] = 1.0;
-	  i++;
-	}
-	if (NULL != data)
-	  data[i] = tempDouble;
+	} else data[i] = tempDouble;
   } else exit(1);
 
-  *sampleSizePtr = i/(ctr + 1);	// rows
-  *numVarPtr = ctr;
+  *sampleSizePtr = i / columns;		// rows
+  *numVarPtr = columns;
 
   return data;
 }
 
-Matrix loadX(int numVar, int sampleSize, double * data)
+void loadXY(int numVar, int sampleSize, double *data, Matrix *x, Matrix *y)
 {
-	Matrix result = { 0 };
-  result.rows = sampleSize;
-  result.cols = numVar;
-  size_t size = result.rows;
-  size *= result.cols;
-  result.data = (double *)calloc(size, sizeof(double));
-  int i,j;
-  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
-	if((i - 1) % (numVar + 1) != 0) {
-	  result.data[j] = data[i];
-	  j++;
-	}
+  size_t size = x->rows = y->rows = sampleSize;
+  x->cols = numVar;
+  y->cols = 1;
+  size *= x->cols;
+  x->data = (double *)calloc(size, sizeof(double));
+  y->data = (double *)calloc(y->rows, sizeof(double));
+  double foo, *data_pt = data, *x_pt = x->data, *y_pt = y->data;
+
+  if (NULL != y_pt && NULL != x_pt)
+  for (int j = 0; j < x->rows; j++)
+  {
+	*x_pt++ = foo = 1.0;		// insert constant coefficients
+	*y_pt++ = foo = *data_pt++;
+	for (double *x = x_pt + numVar - 1; x_pt < x; x_pt++)
+		*x_pt = foo = *data_pt++;
   }
-
-  return result;
-}
-
-Matrix loadY(int numVar, int sampleSize, double * data)
-{
-	Matrix result = { 0 };
-  result.rows = sampleSize;
-  result.cols = 1;
-  result.data = (double *)calloc(result.rows, sizeof(double));
-  int i,j;
-  for(i = 0, j = 0; i < (numVar + 1) * sampleSize; i++) {
-	if((i - 1) % (numVar + 1) == 0) {
-	  result.data[j] = data[i];
-	  j++;
-	}
-  }
-
-  return result;
 }
 
 static void vnprint(char *varName)
