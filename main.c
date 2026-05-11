@@ -5,6 +5,7 @@
 #include <string.h>
 #include "matrix.h"
 #include "dist.h"
+#include "t_test.h"
 
 double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char *varNames[10]);
 Matrix loadX(int numVar, int sampleSize, double * data);
@@ -259,15 +260,14 @@ double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[
 	{
 		varString[i] = '\0';	
   		varNames[ctr++] = j + varString;
-		j = 1 + i;
+		j = 1 + i;		// next varNames
 	}
 
   int size = 100;
   double tempDouble;
-  double * data = malloc(sizeof(double) * size);
-  if(data == NULL) exit(1);
-  i = 0;
-  while(fscanf(fp,"%lf,", &tempDouble) != EOF) {
+  double *data = malloc(sizeof(double) * size);
+  if(data != NULL)
+  for (i = 0; fscanf(fp,"%lf,", &tempDouble) != EOF; i++) {
 	if(i >= size - 1) {
 	  double* more;
 	  size += 100;
@@ -284,9 +284,9 @@ double * readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[
 	}
 	if (NULL != data)
 	  data[i] = tempDouble;
-	i++;
-  }
-  *sampleSizePtr = i/(ctr + 1);
+  } else exit(1);
+
+  *sampleSizePtr = i/(ctr + 1);	// rows
   *numVarPtr = ctr;
 
   return data;
