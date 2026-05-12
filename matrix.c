@@ -25,9 +25,8 @@ Matrix loadMatrix(int rows, int cols, double * elements)
   size *= result.cols;
   result.data = (double *)calloc(size, sizeof(double));
 
-  for(int i = 0; i < rows * cols; i++) {
+  for(int i = 0; i < rows * cols; i++)
     result.data[i] = elements[i];
-  }
 
   return result;
 }
@@ -37,9 +36,8 @@ void printMatrix(Matrix m)
   printf("\nRows: %d\tColumns: %d\n", (int)m.rows, (int)m.cols);
   for(int i = 0; i < m.rows; i++) {
     printf("| ");
-    for(int j = 0; j < m.cols; j++) {
+    for(int j = 0; j < m.cols; j++)
       printf("%4.2lf ", m.data[i*m.cols+j]);
-    }
     printf(" |\n");
   }
 }
@@ -54,9 +52,8 @@ Matrix addMatrix(Matrix a, Matrix b)
   else {
     Matrix result = initMatrix(a.rows, a.cols);
 
-    for(int i = 0; i < a.rows * a.cols; i++) {
+    for(int i = 0; i < a.rows * a.cols; i++)
       result.data[i] = a.data[i] + b.data[i];
-    }
 
     return result;
   }
@@ -107,90 +104,74 @@ int squareMatrix(Matrix m, double square[25][25])
   }
 
   else {
-
-    int k = 0;
-    for(int i = 0; i < m.rows; i++) {
-      for(int j = 0; j < m.rows; j++) {
-        square[i][j] = m.data[k];
-        k++;
-      }
-    }
+    double *d = m.data;
+    for(int i = 0; i < m.rows; i++)
+      for(int j = 0; j < m.rows; j++)
+        square[i][j] = *d++;
     return m.rows;
   }
 }
 
 Matrix inverseMatrix(Matrix m)
 {
-  double squareTemp [25][25];
+  double squareTemp[25][25];
   memset(squareTemp, 0, 625 * sizeof(double)); // 25 * 25
-  Matrix result = initMatrix(m.rows,m.rows);
+  Matrix result = initMatrix(m.rows, m.rows);
   int n = squareMatrix(m, squareTemp);
   double d = determinant(squareTemp, n);
  
-	//printf("\nThe determinant is: %.0f", d);
+  // printf("\nThe determinant is: %.0f", d);
  
-	if (d == 0) {
-	  printf("\nMATRIX IS NOT INVERSIBLE\n"); 
-  }
-  else {
-	  cofactors(squareTemp, n);
-  }
+  if (d == 0)
+	  printf("\ninverseMatrix(): MATRIX IS NOT INVERSIBLE\n"); 
+  else cofactors(squareTemp, n);
   
-  int k = 0;
-  for(int i = 0; i < n; i++) {
-    for(int j = 0; j < n; j++) {
-      result.data[k] = squareTemp[i][j];
-      k++;
-    }
-  }
+  double *r = result.data;
+  for(int i = 0; i < n; i++)
+    for(int j = 0; j < n; j++)
+      *r++ = squareTemp[i][j];
 
   return result;
-
 }
 
-Matrix genCoefficients(Matrix x, Matrix y)
+Matrix genCoefficients(Matrix x, Matrix y, Matrix xtrans)
 {
-  Matrix B = initMatrix(x.cols, x.cols);
-
-  B = multiMatrix((inverseMatrix(multiMatrix(transMatrix(x), x))),(multiMatrix(transMatrix(x),y)));
-
+  Matrix xmm = multiMatrix(xtrans, x);
+  Matrix xinv = inverseMatrix(xmm);
+  free(xmm.data); 
+  Matrix xty = multiMatrix(xtrans,y);
+  Matrix B = multiMatrix(xinv, xty);
+  free(xinv.data); 
+  free(xty.data); 
   return B;
 }
 
-Matrix calcResiduals(Matrix x, Matrix y, Matrix B, double * errStdDev)
+Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double *errStdDev)
 {
   int i;
   double sum = 0;
   Matrix result = initMatrix(y.rows, 1);
-  Matrix Yhat = initMatrix(y.rows, 1);
-  Yhat = multiMatrix(x, B);
 
-  for(i = 0; i < y.rows; i++) {
+  for(i = 0; i < y.rows; i++)
+  {
     result.data[i] = y.data[i] - Yhat.data[i];
-  }
-
-  for(i = 0; i < result.rows; i++) {
     sum += result.data[i] * result.data[i];
   }
 
   *errStdDev = sqrt(sum / (result.rows - (x.cols - 1) - 1));
 
-  free(Yhat.data);
-
   return result;
 }
 
-Matrix stdErr(Matrix x, double errStdDev)
+Matrix stdErr(Matrix x, double errStdDev, Matrix xtrans)
 {
-  int i;
-  Matrix result = initMatrix(x.cols, x.cols);
+  Matrix x2, result = inverseMatrix(x2 = multiMatrix(xtrans,x));
 
-  result = inverseMatrix(multiMatrix(transMatrix(x),x));
+  double *r = result.data;
+  for(double *z = r + x.cols * x.cols; r < z; r++)
+    *r *= errStdDev * errStdDev;
 
-  for(i = 0; i < x.cols * x.cols; i++) {
-    result.data[i] *= errStdDev * errStdDev;
-  }
-
+  free(x2.data);
   return result;
 }
 
@@ -198,21 +179,20 @@ Matrix stdErr(Matrix x, double errStdDev)
 
 double determinant(double a[25][25], double k) {
 	double s = 1, det = 0, b[25][25] = { 0 };
-	int i, j, m, n, c;
 	if (k == 1) {
 		return (a[0][0]);
 	} else {
+		int i, j, m, n, c;
 		det = 0;
 		for (c = 0; c < k; c++) {
-			m = 0;
-			n = 0;
-			for (i = 0; i < k; i++) {
+			for (m =  n = i = 0; i < k; i++) {
 				for (j = 0; j < k; j++) {
 					b[i][j] = 0;
 					if (i != 0 && j != c) {
 						b[m][n] = a[i][j];
 						if (n < (k - 2))
-						       n++; else {
+						       n++;
+						else {
 							n = 0;
 							m++;
 						}
@@ -223,7 +203,7 @@ double determinant(double a[25][25], double k) {
 			s = -1 * s;
 		}
 	}
-	return (det);
+	return det;
 }
  
 void cofactors(double num[25][25], double f) {
@@ -231,9 +211,7 @@ void cofactors(double num[25][25], double f) {
 	int p, q, m, n, i, j;
 	for (q = 0; q < f; q++) {
 		for (p = 0; p < f; p++) {
-			m = 0;
-			n = 0;
-			for (i = 0; i < f; i++) {
+			for (m = n = i = 0; i < f; i++) {
 				for (j = 0; j < f; j++) {
 					b[i][j] = 0;
 					if (i != q && j != p) {

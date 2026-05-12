@@ -15,7 +15,7 @@ static double mean(Matrix m, unsigned int column)
 {
 	double sum = 0;
 	column %= m.cols;
-	double *d = m.data + column;
+	double *d = m.data + column++;
 
 	for (int i = 0; i < m.rows; i++)
 	{
@@ -25,21 +25,18 @@ static double mean(Matrix m, unsigned int column)
 	return sum / m.rows;
 }
 
+double RMSE;
 static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
-  double * errStdDevPtr = &errStdDev;
-  double yMean = 0;
-  for(i = 0; i < y.rows; i++)
-	yMean += y.data[i];
-  yMean /= y.rows;
-
-  Matrix B = genCoefficients(x, y);
-  Matrix residuals = calcResiduals(x, y, B, errStdDevPtr);
-  Matrix stdErrMatrix = stdErr(x, errStdDev);
-  Matrix Yhat = initMatrix(y.rows, 1);
-  Yhat = multiMatrix(x, B);
+  double yMean = mean(y, 0);
+  Matrix xtrans = transMatrix(x);
+  Matrix B = genCoefficients(x, y, xtrans); // B.rows = x.cols; B.cols = y.cols = 1
+  Matrix Yhat = multiMatrix(x, B);
+  Matrix residuals = calcResiduals(x, y, Yhat, &errStdDev);
+  Matrix stdErrMatrix = stdErr(x, errStdDev, xtrans);
+  // predicted values:  x.rows by B.cols = 1
   
   /*
    * Generate Model Metrics and store in order (for later printing)
@@ -56,9 +53,9 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
 
   //Model Sum of Squares
   double SSR = 0;		// Regression Sum of Squares:  explained / estimated variance
-  for(i = 0; i < y.rows; i++) {
+  for(i = 0; i < y.rows; i++)
 	SSR += (Yhat.data[i] - yMean) * (Yhat.data[i] - yMean);
-  }
+
   modelMetrics[4] = SSR;
 
   //Degrees of freedom lower (number of predictors in the model)
@@ -69,60 +66,58 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   double MSR = SSR / k;	// Mean Square Regression
   modelMetrics[6] = modelMetrics[4] / modelMetrics[5];
 
-  //Residuals Sum of Squares (SSE)
-  double SSE = 0;		// Unexplained Variance (Error Sum of Squares)
+  //Residuals Sum of Squares (RSS)
+  double RSS = 0;		// Unexplained Variance
   for(i = 0; i < y.rows; i++) {
-	SSE += (y.data[i] - Yhat.data[i]) * (y.data[i] - Yhat.data[i]);
+	RSS += (y.data[i] - Yhat.data[i]) * (y.data[i] - Yhat.data[i]);
   }
-  modelMetrics[8] = SSE;
+  modelMetrics[8] = RSS;
 
-  //Degrees of freedom upper
-  modelMetrics[9] = x.rows - x.cols;
-
-  //Residuals mean square
-  double MSE = SSE / (x.rows - k - 1);		// MSE (Mean Square for Error)
-  modelMetrics[10] = modelMetrics[8] / modelMetrics[9];
+  //Residuals mean square = RSS / dof
+  double RMS = RSS / (x.rows - x.cols);
+  modelMetrics[10] = modelMetrics[8] / modelMetrics[2];
 
   //Total Sum of Squares (TSS)
-  double sum = 0;
-  for(i = 0; i < y.rows; i++) {
-	sum += (y.data[i] - yMean) * (y.data[i] - yMean);
-  }
-  modelMetrics[13] = sum;
+  double TSS = 0;
+  for(i = 0; i < y.rows; i++)
+	TSS += (y.data[i] - yMean) * (y.data[i] - yMean);
+  modelMetrics[13] = TSS;
 
   //Corrected degrees of freedom
   modelMetrics[14] = x.rows - 1;
 
   //Total Mean Square
-  modelMetrics[15] = modelMetrics[13] / modelMetrics[14];
+  modelMetrics[15] = TSS / modelMetrics[14];
 
   // https://www.numberanalytics.com/blog/ultimate-f-test-regression-guide#calculating-the-f-test
-  // F-test statistic = Model mean square / Residuals mean square
-  double mf, F = MSR / MSE;
+  // F-test statistic = mean square Regression / Residuals mean square
+  double mf, F = MSR / RMS;
   modelMetrics[3] = mf = modelMetrics[6] / modelMetrics[10];
 
   // F-test p-value                        F            k            (x.rows - x->cols)
   modelMetrics[7] = gsl_cdf_fdist_P(modelMetrics[3], modelMetrics[1], modelMetrics[2]);
 
   //R squared
-  modelMetrics[11] = 1 - (modelMetrics[8] / modelMetrics[13]);
+  modelMetrics[11] = 1 - (RSS / TSS);
 
   //Adjusted R squared
-  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * ((x.rows - 1) / (x.rows - modelMetrics[5] - 1));
+  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * ((x.rows - 1) / (x.rows - x.cols));
 
-  //Root MSE = Residuals Sum of Squares / (1 + Number of observations)
-  modelMetrics[16] = modelMetrics[8] / (x.rows + 1);
+  //Root RSS = sqrt(Residuals Sum of Squares)
+  modelMetrics[16] = sqrt(modelMetrics[8]);
+
+  //Root mean square error = sqrt(RSS / x.rows)
+  RMSE = sqrt(RSS / x.rows);
 
   /*
   * Generate Coefficient Metrics and store in order (for later printing)
   */
 
   i = 0; //Track metric in the Coefficent Metric array
-  j = 1; //Track independent variable 
 
   //Non constant variables
-  for(; j < x.cols; j++) {
-	//Coefficient
+  for(j = 1; j < x.cols; j++) {	// independent variable
+	// Model coefficient
 	coefficientMetrics[i] = B.data[j];
 	i++;
 	//Standard error
@@ -164,6 +159,7 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   i++;
 
   free(B.data);
+  free(xtrans.data);
   free(residuals.data);
   free(stdErrMatrix.data);
   free(Yhat.data);
@@ -174,14 +170,12 @@ int main(int argc, char **argv)
   char response = '0', *fin;
   char *varNames[10];
   double modelMetrics[17];
-  double * coefficientMetrics;
+  double *coefficientMetrics;
 
   FILE *text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
 //FILE *text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
-  if(text == NULL) {
-	printf("Unable to open data file '%s'.", fin);
-	return 1;
-  }
+  if(text == NULL)
+	return printf("Unable to open data file '%s'.", fin);
 
   printf("******************************************************************************\n");
   printf("*                                                                            *\n");
@@ -321,45 +315,46 @@ static void vnprint(char *varName)
 	  printf("%c", j < l ? varName[j] : ' '); 
 }
 
-void printModel(char *varNames[10], double modelMetrics[17], double * coefficientMetrics, Matrix x)
+void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, Matrix x)
 {
   int i = 0, j = 0, k;
 
   /*
   *Print equation
   */
-  printf("\nRegression Model Equation:\n%s = %.2lf ",
+  printf("\nRegression Model Equation:\n%s = %.2lf",
 	varNames[0], coefficientMetrics[x.cols * 6 - 6]);
   for(i = 1, j = 0; i < x.cols; i++, j += 6)
-	printf("%+.2lf %s ",coefficientMetrics[j], varNames[i]);
+	printf(" %+.2lf %s",coefficientMetrics[j], varNames[i]);
+  printf(";  RMS error = %.2lf", RMSE);
 
   /*
    * Print model metrics
    */
-  printf("\n\n Source  |  Sum of        df     Mean   0.05 significance, %d observations", x.rows);
-  printf("\n         |  Squares            Squares                 F(%3d,%6d) =  %6.5g",
-   (int)modelMetrics[1], (int)modelMetrics[2], modelMetrics[3]);
-  printf("\n---------+------------------------------       significant if 0.05 > F p-value");
-  printf("\n Model   |  %10.9g %5d  %10.9g               F p-value     =  %6.4lf",
-   modelMetrics[4], (int)modelMetrics[5], modelMetrics[6], modelMetrics[7]);
-  printf("\n Error   |  %10.9g %5d  %10.9g               R-squared     =  %6.4lf",
-   modelMetrics[8], (int)modelMetrics[9], modelMetrics[10], modelMetrics[11]);
-  printf("\n---------+------------------------------               Adj R-squared =  %6.4lf", modelMetrics[12]);
-  printf("\n Total   |  %10.9g %5d  %10.9g               Root MSE      =  %6.5g",
-   modelMetrics[13], (int)modelMetrics[14], modelMetrics[15], modelMetrics[16]);
+  printf("\n\n Source    |  Sum of       dof  Mean      0.05 significance, %d observations", x.rows);
+  printf("\n           |  Squares           Squares                  F(%d, %d) = %6.5g",
+    x.cols - 1, x.rows - x.cols, modelMetrics[3]);
+  printf("\n-----------+------------------------------       significant if 0.05 > F p-value");
+  printf("\n Model     |  %10.9g %5d  %10.9g               F p-value     =  %6.4lf",
+   modelMetrics[4], x.cols - 1, modelMetrics[6], modelMetrics[7]);
+  printf("\n Residuals |  %10.9g %5d  %10.9g               R-squared     =  %6.4lf",
+   modelMetrics[8], x.rows - x.cols, modelMetrics[10], modelMetrics[11]);
+  printf("\n-----------+------------------------------               Adj R-squared =  %6.4lf", modelMetrics[12]);
+  printf("\n Total     |  %10.9g %5d  %10.9g               Root RSS      =  %6.5g",
+   modelMetrics[13], x.rows - 1, modelMetrics[15], modelMetrics[16]);
 
   /*
    * Print coefficient metrics
    */
   char *s;
-  printf(s = "\n------------------------------------------------------------------------------");
+  printf(s = "\n--------------------------------------------------------------------------------");
   vnprint(varNames[i = 0]);
-  printf("|      Coef.   Std. Err.   t-value  P >|t|       [95%% Conf. Interval]%s", s);
+  printf("  |      Coef.   Std. Err.   t-value   P>|t|       [95%% Conf. Interval]%s", s);
   for (k = 0; k < x.cols; k++)
   {
 	vnprint(k == x.cols - 1 ? "Const" : varNames[++i]);
 	j = k * 6;
-	printf("|%11.7g %11.7g %9.5g   %4.3lf  %13.7g  %10.7g",
+	printf("  |%11.7g %11.7g %9.5g  %4.3lf  %13.7g  %10.7g",
 	  coefficientMetrics[j],  coefficientMetrics[j+1], coefficientMetrics[j+2],
 	  coefficientMetrics[j+3],  coefficientMetrics[j+4],  coefficientMetrics[j+5]);
   }

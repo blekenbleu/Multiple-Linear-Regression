@@ -1,13 +1,13 @@
 Regression Model Equation:
-Weight = -127.82 +0.24 Age +3.09 Height
+Weight = -127.82 +0.24 Age +3.09 Height;  RMS error = 11.79
 
- Source  |  Sum of        df     Mean                      237 observations
-         |  Squares            Squares                 F(  2,   234) =  199.61
----------+------------------------------ significant Model if 0.05 > F p-value
+ Source  |  Sum of        df  Mean      0.05 significance, 237 observations
+         |  Squares           Squares                  F(2, 234) = 199.61
+---------+------------------------------       significant if 0.05 > F p-value
  Model   |  56233.2543     2  28116.6271               F p-value     =  0.0000
  Error   |  32960.7605   234  140.857951               R-squared     =  0.6305
 ---------+------------------------------               Adj R-squared =  0.6273
- Total   |  89194.0148   236  377.940741               Root MSE      =  140.07
+ Total   |  89194.0148   236  377.940741               Root RSS      =  181.55
 ------------------------------------------------------------------------------
  Weight  |      Coef.   Std. Err.       t     P>|t|       [95% Conf. Interval]
 ------------------------------------------------------------------------------

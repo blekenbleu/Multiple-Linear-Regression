@@ -18,12 +18,12 @@ extern Matrix loadMatrix(int rows, int cols, double *data);
 extern void printMatrix(Matrix m);
 extern Matrix addMatrix(Matrix a, Matrix b);
 extern Matrix multiMatrix(Matrix a, Matrix b);
-extern Matrix transMatrix(Matrix m);
+extern Matrix transMatrix(Matrix m);	// used only to generate xtrans from x
 extern int squareMatrix(Matrix m, double square[25][25]);
 extern Matrix inverseMatrix(Matrix m);
-extern Matrix genCoefficients(Matrix x, Matrix y);
-extern Matrix calcResiduals(Matrix x, Matrix y, Matrix B, double * errStdDev);
-extern Matrix stdErr(Matrix x, double errStdDev);
+extern Matrix genCoefficients(Matrix x, Matrix y, Matrix xtrans);
+extern Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double * errStdDev);
+extern Matrix stdErr(Matrix x, double errStdDev, Matrix xtrans);
 
 //Inverse matrix functions from: http://scanftree.com/programs/c/c-program-to-find-the-inverse-of-the-matrix/
 extern double determinant(double[25][25], double);
