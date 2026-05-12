@@ -21,11 +21,11 @@ float critical_value(unsigned int df)
 	else if (df >= 100)
 		return t_table[33] + (df - 100) * (t_table[34] - t_table[33]) / 900;
 	else if (df >= 80)
-		return t_table[33] + (df - 80) * (t_table[33] - t_table[32]) / 20;
+		return t_table[32] + (df - 80) * (t_table[33] - t_table[32]) / 20;
 	else if (df >= 60)
-		return t_table[33] + (df - 60) * (t_table[32] - t_table[31]) / 20;
+		return t_table[31] + (df - 60) * (t_table[32] - t_table[31]) / 20;
 	else if (df >= 40)
-		return t_table[33] + (df - 40) * (t_table[31] - t_table[30]) / 20;
+		return t_table[30] + (df - 40) * (t_table[31] - t_table[30]) / 20;
 	else
 		return t_table[29] + (df - 30) * (t_table[30] - t_table[29]) / 10;
 }
