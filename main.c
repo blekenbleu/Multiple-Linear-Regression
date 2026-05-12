@@ -9,20 +9,31 @@
 
 Matrix readData(FILE *fp, char *varNames[10]);
 void loadXY(Matrix *data, Matrix *xp, Matrix *yp);
-void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, int numVar);
+void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, Matrix x);
+
+static double mean(Matrix m, unsigned int column)
+{
+	double sum = 0;
+	column %= m.cols;
+	double *d = m.data + column;
+
+	for (int i = 0; i < m.rows; i++)
+	{
+		sum += *d;
+		d += column;
+	}
+	return sum / m.rows;
+}
 
 static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
   double * errStdDevPtr = &errStdDev;
-  double sum = 0;
   double yMean = 0;
-  for(i = 0; i < y.rows; i++) {
-	sum+= y.data[i];
-  }
-  yMean = sum / y.rows;
-  sum = 0;
+  for(i = 0; i < y.rows; i++)
+	yMean += y.data[i];
+  yMean /= y.rows;
 
   Matrix B = genCoefficients(x, y);
   Matrix residuals = calcResiduals(x, y, B, errStdDevPtr);
@@ -31,8 +42,8 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   Yhat = multiMatrix(x, B);
   
   /*
-  * Generate Model Metrics and store in order (for later printing)
-  */
+   * Generate Model Metrics and store in order (for later printing)
+   */
 
   // Number of observations
   modelMetrics[0] = x.rows;
@@ -73,11 +84,11 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   modelMetrics[10] = modelMetrics[8] / modelMetrics[9];
 
   //Total Sum of Squares (TSS)
+  double sum = 0;
   for(i = 0; i < y.rows; i++) {
 	sum += (y.data[i] - yMean) * (y.data[i] - yMean);
   }
   modelMetrics[13] = sum;
-  sum = 0;
 
   //Corrected degrees of freedom
   modelMetrics[14] = x.rows - 1;
@@ -97,10 +108,10 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   modelMetrics[11] = 1 - (modelMetrics[8] / modelMetrics[13]);
 
   //Adjusted R squared
-  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * ((modelMetrics[0] - 1) / (modelMetrics[0] - modelMetrics[5] - 1));
+  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * ((x.rows - 1) / (x.rows - modelMetrics[5] - 1));
 
   //Root MSE = Residuals Sum of Squares / (1 + Number of observations)
-  modelMetrics[16] = modelMetrics[8] / modelMetrics[0] + 1;
+  modelMetrics[16] = modelMetrics[8] / (x.rows + 1);
 
   /*
   * Generate Coefficient Metrics and store in order (for later printing)
@@ -207,7 +218,7 @@ int main(int argc, char **argv)
 
   regress(x, y, modelMetrics, coefficientMetrics);
  
-  printModel(varNames, modelMetrics, coefficientMetrics, x.cols);
+  printModel(varNames, modelMetrics, coefficientMetrics, x);
   
   free(x.data);
   free(y.data);
@@ -310,7 +321,7 @@ static void vnprint(char *varName)
 	  printf("%c", j < l ? varName[j] : ' '); 
 }
 
-void printModel(char *varNames[10], double modelMetrics[17], double * coefficientMetrics, int numVar)
+void printModel(char *varNames[10], double modelMetrics[17], double * coefficientMetrics, Matrix x)
 {
   int i = 0, j = 0, k;
 
@@ -318,14 +329,14 @@ void printModel(char *varNames[10], double modelMetrics[17], double * coefficien
   *Print equation
   */
   printf("\nRegression Model Equation:\n%s = %.2lf ",
-	varNames[0], coefficientMetrics[numVar * 6 - 6]);
-  for(i = 1, j = 0; i < numVar; i++, j += 6)
+	varNames[0], coefficientMetrics[x.cols * 6 - 6]);
+  for(i = 1, j = 0; i < x.cols; i++, j += 6)
 	printf("%+.2lf %s ",coefficientMetrics[j], varNames[i]);
 
   /*
    * Print model metrics
    */
-  printf("\n\n Source  |  Sum of        df     Mean   0.05 significance, %d observations", (int)modelMetrics[0]);
+  printf("\n\n Source  |  Sum of        df     Mean   0.05 significance, %d observations", x.rows);
   printf("\n         |  Squares            Squares                 F(%3d,%6d) =  %6.5g",
    (int)modelMetrics[1], (int)modelMetrics[2], modelMetrics[3]);
   printf("\n---------+------------------------------       significant if 0.05 > F p-value");
@@ -344,9 +355,9 @@ void printModel(char *varNames[10], double modelMetrics[17], double * coefficien
   printf(s = "\n------------------------------------------------------------------------------");
   vnprint(varNames[i = 0]);
   printf("|      Coef.   Std. Err.   t-value  P >|t|       [95%% Conf. Interval]%s", s);
-  for (k = 0; k < numVar; k++)
+  for (k = 0; k < x.cols; k++)
   {
-	vnprint(k == numVar - 1 ? "Const" : varNames[++i]);
+	vnprint(k == x.cols - 1 ? "Const" : varNames[++i]);
 	j = k * 6;
 	printf("|%11.7g %11.7g %9.5g   %4.3lf  %13.7g  %10.7g",
 	  coefficientMetrics[j],  coefficientMetrics[j+1], coefficientMetrics[j+2],
