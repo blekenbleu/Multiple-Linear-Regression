@@ -7,11 +7,11 @@
 #include "dist.h"
 #include "t_test.h"
 
-double * readData(FILE * fp, int * numVarPtr, int * sampleSizePtr, char *varNames[10]);
-void loadXY(int numVar, int sampleSize, double *data, Matrix *xp, Matrix *yp);
-void printModel(char *varNames[10], double modelMetrics[17], double * coefficientMetrics, int numVar);
+Matrix readData(FILE *fp, char *varNames[10]);
+void loadXY(Matrix *data, Matrix *xp, Matrix *yp);
+void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, int numVar);
 
-static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double modelMetrics[15], double * coefficientMetrics)
+static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
@@ -35,13 +35,13 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   */
 
   // Number of observations
-  modelMetrics[0] = sampleSize;
+  modelMetrics[0] = x.rows;
 
   // Degrees of freedom lower
-  modelMetrics[1] = numVar - 1;
+  modelMetrics[1] = x.cols - 1;
 
   //Degrees of freedom upper
-  modelMetrics[2] = sampleSize - numVar;
+  modelMetrics[2] = x.rows - x.cols;
 
   //Model Sum of Squares
   double SSR = 0;		// Regression Sum of Squares:  explained / estimated variance
@@ -52,7 +52,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
 
   //Degrees of freedom lower (number of predictors in the model)
   int k;
-  modelMetrics[5] = k = numVar - 1;
+  modelMetrics[5] = k = x.cols - 1;
 
   //Model mean square
   double MSR = SSR / k;	// Mean Square Regression
@@ -66,10 +66,10 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   modelMetrics[8] = SSE;
 
   //Degrees of freedom upper
-  modelMetrics[9] = sampleSize - numVar;
+  modelMetrics[9] = x.rows - x.cols;
 
   //Residuals mean square
-  double MSE = SSE / (sampleSize - k - 1);		// MSE (Mean Square for Error)
+  double MSE = SSE / (x.rows - k - 1);		// MSE (Mean Square for Error)
   modelMetrics[10] = modelMetrics[8] / modelMetrics[9];
 
   //Total Sum of Squares (TSS)
@@ -80,7 +80,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   sum = 0;
 
   //Corrected degrees of freedom
-  modelMetrics[14] = sampleSize - 1;
+  modelMetrics[14] = x.rows - 1;
 
   //Total Mean Square
   modelMetrics[15] = modelMetrics[13] / modelMetrics[14];
@@ -90,7 +90,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   double mf, F = MSR / MSE;
   modelMetrics[3] = mf = modelMetrics[6] / modelMetrics[10];
 
-  // F-test p-value                        F            k            (sampleSize - numVar)
+  // F-test p-value                        F            k            (x.rows - x->cols)
   modelMetrics[7] = gsl_cdf_fdist_P(modelMetrics[3], modelMetrics[1], modelMetrics[2]);
 
   //R squared
@@ -110,12 +110,12 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   j = 1; //Track independent variable 
 
   //Non constant variables
-  for(; j < numVar; j++) {
+  for(; j < x.cols; j++) {
 	//Coefficient
 	coefficientMetrics[i] = B.data[j];
 	i++;
 	//Standard error
-	coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * numVar + j]);
+	coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * x.cols + j]);
 	i++;
 	//t test statistic
 	coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
@@ -137,7 +137,7 @@ static void regress(Matrix x, Matrix y, int numVar, int sampleSize, double model
   coefficientMetrics[i] = B.data[j];
   i++;
   //Standard error
-  coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * numVar + j]);
+  coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * x.cols + j]);
   i++;
    //t test statistic
   coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
@@ -164,13 +164,9 @@ int main(int argc, char **argv)
   char *varNames[10];
   double modelMetrics[17];
   double * coefficientMetrics;
-  int numVar = 0;
-  int * numVarPtr = &numVar;
-  int sampleSize = 0;
-  int * sampleSizePtr = &sampleSize;
 
-  FILE* text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
-//FILE* text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
+  FILE *text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
+//FILE *text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
   if(text == NULL) {
 	printf("Unable to open data file '%s'.", fin);
 	return 1;
@@ -199,48 +195,47 @@ int main(int argc, char **argv)
   
   response = getchar();
 
-  double *data = readData(text, numVarPtr, sampleSizePtr, varNames);
+  Matrix data = readData(text, varNames);
 
-  if (NULL == data)
+  if (NULL == data.data)
 	  return -1;
 
-  coefficientMetrics = (double *)malloc(sizeof(double) * 6 * numVar);
-  Matrix x = {0}, y = {0}, *xp = &x, *yp = &y;
-  loadXY(numVar, sampleSize, data, xp, yp);
-  free(data);
+  coefficientMetrics = (double *)malloc(sizeof(double) * 6 * data.cols);
+  Matrix x = {0}, y = {0};
+  loadXY(&data, &x, &y);
+  free(data.data);
 
-  regress(x, y, numVar, sampleSize, modelMetrics, coefficientMetrics);
+  regress(x, y, modelMetrics, coefficientMetrics);
  
-  printModel(varNames, modelMetrics, coefficientMetrics, numVar);
+  printModel(varNames, modelMetrics, coefficientMetrics, x.cols);
   
   free(x.data);
   free(y.data);
   return 0;
 }
 
-static double *gpdata(FILE *fp, int rows, int col)
+static Matrix gpdata(FILE *fp, Matrix data, unsigned int col)
 {
-	return NULL;
+	return data;
 }
 
 char varString[100];
-double *readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[10])
+Matrix readData(FILE *fp, char *varNames[10])
 {
   int i = fscanf(fp, "%[^\n]", varString);
   varString[99] = '\0';
-
+  Matrix read = {0};
   int j, columns;
   size_t l = strlen(varString);
 
   if (7 < l && 0 == strncmp("# rows ", varString, 7)) // intercept gnuplot data
   {
 	char *endptr;
-	int rows = strtol(7 + varString, &endptr, 10);
+	read.rows = strtol(7 + varString, &endptr, 10);
 
 	if ('\0' != endptr)
 	{
-		*numVarPtr = 8;
-		*sampleSizePtr = rows;
+		read.cols = 8;
 		strcpy(varNames[0], "Rd");	// dependent variable: R or B center delta
 		strcpy(varNames[1], "Gx");	// only truly independent variables are Gx and Gy
 		strcpy(varNames[2], "Gx2");	// others are not LINEARLY independent... 
@@ -250,7 +245,7 @@ double *readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[1
 		strcpy(varNames[6], "Gy3");
 		strcpy(varNames[7], "Gxy");
 		
-		return gpdata(fp, rows, 2);	// 2 - 5 are columns for Rdx - Bdy
+		return gpdata(fp, read, 2);	// 2 - 5 are columns for Rdx - Bdy
 	}
   }
 
@@ -264,45 +259,45 @@ double *readData(FILE * fp, int *numVarPtr, int *sampleSizePtr, char *varNames[1
 
   int size = 100;
   double tempDouble;
-  double *data = malloc(sizeof(double) * size);
-  if(data != NULL)
+  read.data = malloc(sizeof(double) * size);
+  if(read.data != NULL)
   for (i = 0; fscanf(fp,"%lf,", &tempDouble) != EOF; i++) {
 	if(i >= size - 1) {
 	  size += 100;
-	  double *more = realloc(data, size * sizeof(double));
+	  double *more = realloc(read.data, size * sizeof(double));
 	  if (NULL == more)
 	  {
-		  free(data);
+		  free(read.data);
 		  exit(1);
 	  } else {
-		data = more;
-		data[i] = tempDouble;
+		read.data = more;
+		read.data[i] = tempDouble;
 	  }
-	} else data[i] = tempDouble;
+	} else read.data[i] = tempDouble;
   } else exit(1);
 
-  *sampleSizePtr = i / columns;		// rows
-  *numVarPtr = columns;
+  read.rows = i / columns;		// rows
+  read.cols = columns;
 
-  return data;
+  return read;
 }
 
-void loadXY(int numVar, int sampleSize, double *data, Matrix *x, Matrix *y)
+void loadXY(Matrix *data, Matrix *x, Matrix *y)
 {
-  size_t size = x->rows = y->rows = sampleSize;
-  x->cols = numVar;
+  size_t size = x->rows = y->rows = data->rows;
+  x->cols = data->cols;
   y->cols = 1;
   size *= x->cols;
   x->data = (double *)calloc(size, sizeof(double));
   y->data = (double *)calloc(y->rows, sizeof(double));
-  double foo, *data_pt = data, *x_pt = x->data, *y_pt = y->data;
+  double foo, *data_pt = data->data, *x_pt = x->data, *y_pt = y->data;
 
   if (NULL != y_pt && NULL != x_pt)
   for (int j = 0; j < x->rows; j++)
   {
 	*x_pt++ = foo = 1.0;		// insert constant coefficients
 	*y_pt++ = foo = *data_pt++;
-	for (double *x = x_pt + numVar - 1; x_pt < x; x_pt++)
+	for (double *z = x_pt + data->cols - 1; x_pt < z; x_pt++)
 		*x_pt = foo = *data_pt++;
   }
 }
