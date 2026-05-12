@@ -7,10 +7,6 @@
 #include "dist.h"
 #include "t_test.h"
 
-Matrix readData(FILE *fp, char *varNames[10]);
-void loadXY(Matrix *data, Matrix *xp, Matrix *yp);
-void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, Matrix x);
-
 static double mean(Matrix m, unsigned int column)
 {
 	double sum = 0;
@@ -25,8 +21,7 @@ static double mean(Matrix m, unsigned int column)
 	return sum / m.rows;
 }
 
-double RMSE;
-static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
+static double regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
@@ -101,13 +96,13 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   modelMetrics[11] = 1 - (RSS / TSS);
 
   //Adjusted R squared
-  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * ((x.rows - 1) / (x.rows - x.cols));
+  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * (double)(x.rows - 1) / (x.rows - x.cols);
 
   //Root RSS = sqrt(Residuals Sum of Squares)
   modelMetrics[16] = sqrt(modelMetrics[8]);
 
   //Root mean square error = sqrt(RSS / x.rows)
-  RMSE = sqrt(RSS / x.rows);
+  double RMSE = sqrt(RSS / x.rows);
 
   /*
   * Generate Coefficient Metrics and store in order (for later printing)
@@ -163,60 +158,7 @@ static void regress(Matrix x, Matrix y, double modelMetrics[15], double *coeffic
   free(residuals.data);
   free(stdErrMatrix.data);
   free(Yhat.data);
-}
-
-int main(int argc, char **argv)
-{
-  char response = '0', *fin;
-  char *varNames[10];
-  double modelMetrics[17];
-  double *coefficientMetrics;
-
-  FILE *text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
-//FILE *text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
-  if(text == NULL)
-	return printf("Unable to open data file '%s'.", fin);
-
-  printf("******************************************************************************\n");
-  printf("*                                                                            *\n");
-  printf("* Title: Multiple Linear Regression                                          *\n");
-  printf("* Description:  This program takes an inputted data file and performs        *\n");
-  printf("*               multiple linear regression analysis on the data.             *\n");
-  printf("* Author:       Oscar Zealley                                                *\n");
-  printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
-  printf("*               this program. Data must be formatted like this:              *\n");
-  printf("*                                                                            *\n");
-  printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
-  printf("*                   4,                      5,                    8,...      *\n");
-  printf("*                   7,                     12,                    5,...      *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                                                                            *\n");
-  printf("* NB: Max number of variables is 10.                                         *\n");
-  printf("*                                                                            *\n");
-  printf("* Press enter for sample data statistics.                                    *\n");
-  printf("*                                                                            *\n");
-  printf("******************************************************************************\n");
-  
-  response = getchar();
-
-  Matrix data = readData(text, varNames);
-
-  if (NULL == data.data)
-	  return -1;
-
-  coefficientMetrics = (double *)malloc(sizeof(double) * 6 * data.cols);
-  Matrix x = {0}, y = {0};
-  loadXY(&data, &x, &y);
-  free(data.data);
-
-  regress(x, y, modelMetrics, coefficientMetrics);
- 
-  printModel(varNames, modelMetrics, coefficientMetrics, x);
-  
-  free(x.data);
-  free(y.data);
-  return 0;
+  return RMSE;
 }
 
 static Matrix gpdata(FILE *fp, Matrix data, unsigned int col)
@@ -225,7 +167,7 @@ static Matrix gpdata(FILE *fp, Matrix data, unsigned int col)
 }
 
 char varString[100];
-Matrix readData(FILE *fp, char *varNames[10])
+static Matrix readData(FILE *fp, char *varNames[10])
 {
   int i = fscanf(fp, "%[^\n]", varString);
   varString[99] = '\0';
@@ -287,7 +229,7 @@ Matrix readData(FILE *fp, char *varNames[10])
   return read;
 }
 
-void loadXY(Matrix *data, Matrix *x, Matrix *y)
+static void loadXY(Matrix *data, Matrix *x, Matrix *y)
 {
   size_t size = x->rows = y->rows = data->rows;
   x->cols = data->cols;
@@ -315,16 +257,20 @@ static void vnprint(char *varName)
 	  printf("%c", j < l ? varName[j] : ' '); 
 }
 
-void printModel(char *varNames[10], double modelMetrics[17], double *coefficientMetrics, Matrix x)
+static void printModel(char *varNames[10], Matrix x, Matrix y)
 {
-  int i = 0, j = 0, k;
+  double *coefficientMetrics = (double *)malloc(sizeof(double) * 6 * x.cols);
+  if (NULL == coefficientMetrics)
+	  return;
+  double modelMetrics[17] = { 0 };
+  double RMSE = regress(x, y, modelMetrics, coefficientMetrics);
 
   /*
-  *Print equation
-  */
+   * Print equation
+   */
   printf("\nRegression Model Equation:\n%s = %.2lf",
 	varNames[0], coefficientMetrics[x.cols * 6 - 6]);
-  for(i = 1, j = 0; i < x.cols; i++, j += 6)
+  for(int i = 1, j = 0; i < x.cols; i++, j += 6)
 	printf(" %+.2lf %s",coefficientMetrics[j], varNames[i]);
   printf(";  RMS error = %.2lf", RMSE);
 
@@ -346,17 +292,66 @@ void printModel(char *varNames[10], double modelMetrics[17], double *coefficient
   /*
    * Print coefficient metrics
    */
-  char *s;
+  char *s, **vn = varNames;
   printf(s = "\n--------------------------------------------------------------------------------");
-  vnprint(varNames[i = 0]);
+  vnprint(*vn++);
   printf("  |      Coef.   Std. Err.   t-value   P>|t|       [95%% Conf. Interval]%s", s);
-  for (k = 0; k < x.cols; k++)
+  for (int k = 0; k < x.cols; k++)
   {
-	vnprint(k == x.cols - 1 ? "Const" : varNames[++i]);
-	j = k * 6;
+	vnprint(k == x.cols - 1 ? "Const" : *vn++);
+	int j = k * 6;
 	printf("  |%11.7g %11.7g %9.5g  %4.3lf  %13.7g  %10.7g",
 	  coefficientMetrics[j],  coefficientMetrics[j+1], coefficientMetrics[j+2],
 	  coefficientMetrics[j+3],  coefficientMetrics[j+4],  coefficientMetrics[j+5]);
   }
   printf(s);
+}
+
+int main(int argc, char **argv)
+{
+  char response = '0', *fin;
+  char *varNames[10];
+
+  FILE *text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
+//FILE *text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
+  if(text == NULL)
+	return printf("Unable to open data file '%s'.", fin);
+
+  printf("******************************************************************************\n");
+  printf("*                                                                            *\n");
+  printf("* Title: Multiple Linear Regression                                          *\n");
+  printf("* Description:  This program takes an inputted data file and performs        *\n");
+  printf("*               multiple linear regression analysis on the data.             *\n");
+  printf("* Author:       Oscar Zealley                                                *\n");
+  printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
+  printf("*               this program. Data must be formatted like this:              *\n");
+  printf("*                                                                            *\n");
+  printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
+  printf("*                   4,                      5,                    8,...      *\n");
+  printf("*                   7,                     12,                    5,...      *\n");
+  printf("*                   .                       .                     .          *\n");
+  printf("*                   .                       .                     .          *\n");
+  printf("*                                                                            *\n");
+  printf("* NB: Max number of variables is 10.                                         *\n");
+  printf("*                                                                            *\n");
+  printf("* Press enter for sample data statistics.                                    *\n");
+  printf("*                                                                            *\n");
+  printf("******************************************************************************\n");
+  
+  response = getchar();
+
+  Matrix data = readData(text, varNames);
+
+  if (NULL == data.data)
+	  return -1;
+
+  Matrix x = {0}, y = {0};
+  loadXY(&data, &x, &y);
+  free(data.data);
+
+  printModel(varNames, x, y);
+  
+  free(x.data);
+  free(y.data);
+  return 0;
 }
