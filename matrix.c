@@ -146,6 +146,8 @@ Matrix genCoefficients(Matrix x, Matrix y, Matrix xtrans)
   return B;
 }
 
+// Yhat are Model (estimated) solutions, applying estimated coefficients toindependent data
+// *errStdDev is sqrt((sum of (differences from mean)**2) / (y.rows - 1)) 
 Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double *errStdDev)
 {
   int i;
@@ -158,18 +160,19 @@ Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double *errStdDev)
     sum += result.data[i] * result.data[i];
   }
 
-  *errStdDev = sqrt(sum / (result.rows - (x.cols - 1) - 1));
+  // stdDev for the Model
+  *errStdDev = sqrt(sum / (result.rows - x.cols - 1));
 
   return result;
 }
 
 Matrix stdErr(Matrix x, double errStdDev, Matrix xtrans)
 {
-  Matrix x2, result = inverseMatrix(x2 = multiMatrix(xtrans,x));
+  Matrix x2, result = inverseMatrix(x2 = multiMatrix(xtrans, x));
 
-  double *r = result.data;
+  double *r = result.data, est = errStdDev * errStdDev;
   for(double *z = r + x.cols * x.cols; r < z; r++)
-    *r *= errStdDev * errStdDev;
+    *r *= est;
 
   free(x2.data);
   return result;

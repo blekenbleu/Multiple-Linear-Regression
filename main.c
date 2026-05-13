@@ -21,88 +21,70 @@ static double mean(Matrix m, unsigned int column)
 	return sum / m.rows;
 }
 
-static double regress(Matrix x, Matrix y, double modelMetrics[15], double *coefficientMetrics)
+Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
   double yMean = mean(y, 0);
   Matrix xtrans = transMatrix(x);
   Matrix B = genCoefficients(x, y, xtrans); // B.rows = x.cols; B.cols = y.cols = 1
-  Matrix Yhat = multiMatrix(x, B);
+  Matrix Yhat = multiMatrix(x, B);	//  y estimates
+  // errStdDev = sqrt(sum((y-Yhat)**2)) / (result.rows - x.cols));
   Matrix residuals = calcResiduals(x, y, Yhat, &errStdDev);
   Matrix stdErrMatrix = stdErr(x, errStdDev, xtrans);
   // predicted values:  x.rows by B.cols = 1
+  Metrics modelMetrics = { 0 };
   
   /*
    * Generate Model Metrics and store in order (for later printing)
    */
 
-  // Number of observations
-  modelMetrics[0] = x.rows;
-
-  // Degrees of freedom lower
-  modelMetrics[1] = x.cols - 1;
-
-  //Degrees of freedom upper
-  modelMetrics[2] = x.rows - x.cols;
-
+  // Regression Sum of Squares:  explained / estimated variance
   //Model Sum of Squares
-  double SSR = 0;		// Regression Sum of Squares:  explained / estimated variance
+  modelMetrics.SSR = 0;
   for(i = 0; i < y.rows; i++)
-	SSR += (Yhat.data[i] - yMean) * (Yhat.data[i] - yMean);
+	modelMetrics.SSR += (Yhat.data[i] - yMean) * (Yhat.data[i] - yMean);
 
-  modelMetrics[4] = SSR;
+  //Model mean square; recall that one x column is NOT independent variables
+  double MSR = modelMetrics.SSR / (x.cols - 1);	// Mean Square Regression
 
-  //Degrees of freedom lower (number of predictors in the model)
-  int k;
-  modelMetrics[5] = k = x.cols - 1;
-
-  //Model mean square
-  double MSR = SSR / k;	// Mean Square Regression
-  modelMetrics[6] = modelMetrics[4] / modelMetrics[5];
-
-  //Residuals Sum of Squares (RSS)
-  double RSS = 0;		// Unexplained Variance
-  for(i = 0; i < y.rows; i++) {
-	RSS += (y.data[i] - Yhat.data[i]) * (y.data[i] - Yhat.data[i]);
-  }
-  modelMetrics[8] = RSS;
-
-  //Residuals mean square = RSS / dof
-  double RMS = RSS / (x.rows - x.cols);
-  modelMetrics[10] = modelMetrics[8] / modelMetrics[2];
-
-  //Total Sum of Squares (TSS)
-  double TSS = 0;
+  //Residuals Sum of Squares (RSS):  Unexplained Variance
+  modelMetrics.RSS = 0;
   for(i = 0; i < y.rows; i++)
-	TSS += (y.data[i] - yMean) * (y.data[i] - yMean);
-  modelMetrics[13] = TSS;
+	modelMetrics.RSS += (y.data[i] - Yhat.data[i]) * (y.data[i] - Yhat.data[i]);
 
-  //Corrected degrees of freedom
-  modelMetrics[14] = x.rows - 1;
+  //Standard Error of Estimate https://www.socscistatistics.com/tests/errorofestimate/
+  modelMetrics.SEE = (modelMetrics.RSS / (x.rows - 1));
 
-  //Total Mean Square
-  modelMetrics[15] = TSS / modelMetrics[14];
+  //Residuals mean square = modelMetrics.RSS / dof
+  modelMetrics.RMS = modelMetrics.RSS / (x.rows - x.cols);
 
   // https://www.numberanalytics.com/blog/ultimate-f-test-regression-guide#calculating-the-f-test
   // F-test statistic = mean square Regression / Residuals mean square
-  double mf, F = MSR / RMS;
-  modelMetrics[3] = mf = modelMetrics[6] / modelMetrics[10];
+  modelMetrics.F = MSR / modelMetrics.RMS;
 
-  // F-test p-value                        F            k            (x.rows - x->cols)
-  modelMetrics[7] = gsl_cdf_fdist_P(modelMetrics[3], modelMetrics[1], modelMetrics[2]);
+  // F-test p-value
+  modelMetrics.p_value = gsl_cdf_fdist_P(modelMetrics.F, x.cols - 1, x.rows - x.cols);
+
+  //Total Sum of Squares (TSS)
+  modelMetrics.TSS = 0;
+  for(i = 0; i < y.rows; i++)
+	modelMetrics.TSS += (y.data[i] - yMean) * (y.data[i] - yMean);
 
   //R squared
-  modelMetrics[11] = 1 - (RSS / TSS);
+  modelMetrics.R2 = 1 - (modelMetrics.RSS / modelMetrics.TSS);
 
   //Adjusted R squared
-  modelMetrics[12] = 1 - (1 - modelMetrics[11]) * (double)(x.rows - 1) / (x.rows - x.cols);
+  modelMetrics.AR2 = 1 - (1 - modelMetrics.R2) * (double)(x.rows - 1) / (x.rows - x.cols);
 
-  //Root RSS = sqrt(Residuals Sum of Squares)
-  modelMetrics[16] = sqrt(modelMetrics[8]);
+  // Model estimate
+  modelMetrics.Mest = mean(Yhat, 0);
+
+  // Model t-value:  estimate - actual / standard error
+  modelMetrics.Mtv = (modelMetrics.Mest - yMean) / modelMetrics.SEE;
 
   //Root mean square error = sqrt(RSS / x.rows)
-  double RMSE = sqrt(RSS / x.rows);
+  modelMetrics.RMSE = sqrt(modelMetrics.RSS / x.rows);
 
   /*
   * Generate Coefficient Metrics and store in order (for later printing)
@@ -115,14 +97,14 @@ static double regress(Matrix x, Matrix y, double modelMetrics[15], double *coeff
 	// Model coefficient
 	coefficientMetrics[i] = B.data[j];
 	i++;
-	//Standard error
+	//Standard error for regression coefficients 
 	coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * x.cols + j]);
 	i++;
 	//t test statistic
 	coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
 	i++;
 	//t test p-value
-	coefficientMetrics[i] = critical_value(1);
+	coefficientMetrics[i] = critical_value(x.rows - 1);
 	i++;
 	//Confidence inteval lower
 	coefficientMetrics[i] = coefficientMetrics[i-4] - 1.96 * coefficientMetrics[i-3];
@@ -144,7 +126,7 @@ static double regress(Matrix x, Matrix y, double modelMetrics[15], double *coeff
   coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
   i++;
   //t test p-value
-  coefficientMetrics[i] = critical_value(1);
+  coefficientMetrics[i] = critical_value(x.rows - 1);
   i++;
   //Confidence inteval lower
   coefficientMetrics[i] = coefficientMetrics[i-4] - 1.96 * coefficientMetrics[i-3];
@@ -158,7 +140,7 @@ static double regress(Matrix x, Matrix y, double modelMetrics[15], double *coeff
   free(residuals.data);
   free(stdErrMatrix.data);
   free(Yhat.data);
-  return RMSE;
+  return modelMetrics;
 }
 
 static Matrix gpdata(FILE *fp, Matrix data, unsigned int col)
@@ -262,40 +244,40 @@ static void printModel(char *varNames[10], Matrix x, Matrix y)
   double *coefficientMetrics = (double *)malloc(sizeof(double) * 6 * x.cols);
   if (NULL == coefficientMetrics)
 	  return;
-  double modelMetrics[17] = { 0 };
-  double RMSE = regress(x, y, modelMetrics, coefficientMetrics);
+
+  Metrics modelMetrics = regress(x, y, coefficientMetrics);
 
   /*
    * Print equation
    */
-  printf("\nRegression Model Equation:\n%s = %.2lf",
+  printf("\nRegression Model Equation:  significant Coef. if |t-value| > critial\n%s = %.2lf",
 	varNames[0], coefficientMetrics[x.cols * 6 - 6]);
   for(int i = 1, j = 0; i < x.cols; i++, j += 6)
 	printf(" %+.2lf %s",coefficientMetrics[j], varNames[i]);
-  printf(";  RMS error = %.2lf", RMSE);
+  printf(";  RMS error = %.2lf", modelMetrics.RMSE);
 
   /*
    * Print model metrics
    */
   printf("\n\n Source    |  Sum of       dof  Mean      0.05 significance, %d observations", x.rows);
   printf("\n           |  Squares           Squares                  F(%d, %d) = %6.5g",
-    x.cols - 1, x.rows - x.cols, modelMetrics[3]);
-  printf("\n-----------+------------------------------       significant if 0.05 > F p-value");
-  printf("\n Model     |  %10.9g %5d  %10.9g               F p-value     =  %6.4lf",
-   modelMetrics[4], x.cols - 1, modelMetrics[6], modelMetrics[7]);
+    x.cols - 1, x.rows - x.cols, modelMetrics.F);
+  printf("\n-----------+------------------------------               F p-value     =  %6.4lf", modelMetrics.p_value);
+  printf("\n Model     |  %10.9g %5d  %10.9g       significant if 0.05 > F p-value",
+   modelMetrics.SSR, x.cols - 1, modelMetrics.SSR/(x.cols - 1));
   printf("\n Residuals |  %10.9g %5d  %10.9g               R-squared     =  %6.4lf",
-   modelMetrics[8], x.rows - x.cols, modelMetrics[10], modelMetrics[11]);
-  printf("\n-----------+------------------------------               Adj R-squared =  %6.4lf", modelMetrics[12]);
+   modelMetrics.RSS, x.rows - x.cols, modelMetrics.RMS, modelMetrics.R2);
+  printf("\n-----------+------------------------------               Adj R-squared =  %6.4lf", modelMetrics.AR2);
   printf("\n Total     |  %10.9g %5d  %10.9g               Root RSS      =  %6.5g",
-   modelMetrics[13], x.rows - 1, modelMetrics[15], modelMetrics[16]);
+   modelMetrics.TSS, x.rows - 1, modelMetrics.TSS/(x.rows - 1), sqrt(modelMetrics.RSS));
 
   /*
    * Print coefficient metrics
    */
   char *s, **vn = varNames;
-  printf(s = "\n--------------------------------------------------------------------------------");
+  printf(s = "\n-----------+--------------------------------------------------------------------");
   vnprint(*vn++);
-  printf("  |      Coef.   Std. Err.   t-value   P>|t|       [95%% Conf. Interval]%s", s);
+  printf("  |      Coef.   Std. Err.   t-value critical      [95%% Conf. Interval]%s", s);
   for (int k = 0; k < x.cols; k++)
   {
 	vnprint(k == x.cols - 1 ? "Const" : *vn++);
@@ -304,19 +286,26 @@ static void printModel(char *varNames[10], Matrix x, Matrix y)
 	  coefficientMetrics[j],  coefficientMetrics[j+1], coefficientMetrics[j+2],
 	  coefficientMetrics[j+3],  coefficientMetrics[j+4],  coefficientMetrics[j+5]);
   }
+  vnprint("Model");
+  printf("  |%11.7g %11.7g %8.4g  %4.3lf",
+	modelMetrics.Mest, modelMetrics.SEE, modelMetrics.Mtv, critical_value(x.rows - x.cols));
   printf(s);
 }
 
 int main(int argc, char **argv)
 {
-  char response = '0', *fin;
-  char *varNames[10];
+  char *fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1];
+//char *fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1];
 
-  FILE *text = fopen(fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1], "r");
-//FILE *text = fopen(fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1], "r");
+  FILE *text = fopen(fin, "r");
   if(text == NULL)
 	return printf("Unable to open data file '%s'.", fin);
 
+  char *varNames[10];
+  Matrix data = readData(text, varNames);
+
+  if (NULL == data.data)
+{
   printf("******************************************************************************\n");
   printf("*                                                                            *\n");
   printf("* Title: Multiple Linear Regression                                          *\n");
@@ -338,12 +327,9 @@ int main(int argc, char **argv)
   printf("*                                                                            *\n");
   printf("******************************************************************************\n");
   
-  response = getchar();
-
-  Matrix data = readData(text, varNames);
-
-  if (NULL == data.data)
+  char response = getchar();
 	  return -1;
+}
 
   Matrix x = {0}, y = {0};
   loadXY(&data, &x, &y);

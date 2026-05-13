@@ -1,6 +1,16 @@
 // https://statisticsbyjim.com/hypothesis-testing/how-to-find-p-value/
 #include <math.h>
 
+typedef struct
+{
+  double RMSE;
+  double SSR;
+  double RMS, RSS, SEE;
+  double TSS, p_value, F;
+  double Mest, Mtv;
+  double AR2, R2;
+} Metrics;
+
 double t_value(double sample_mean, double null_value, double stddev, int sample_size)
 {
 	return (sample_mean - null_value) / (stddev / sqrt(sample_size));

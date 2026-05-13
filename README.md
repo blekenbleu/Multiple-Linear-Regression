@@ -25,7 +25,6 @@ it contains dependent and associated independent variable values.
 relating dependent variables to remaining independent variables.  
 Model statistics are then calculated for significance and accuracy of this relationship. 
 
-
 #### Example output:
 ```
     ******************************************************************************
@@ -51,3 +50,19 @@ Model statistics are then calculated for significance and accuracy of this relat
     ******************************************************************************
 ```
 ...*after pressing* `enter`, [statistics are generated and displayed](data/health_data_stats.txt)
+
+#### Compared to [JASP](https://jasp-stats.org/getting-started/) - *13 May 2026*
+In JASP top row, chose Regression, then Classical -> Linear Regression
+- in Linear Regression window, put one variable in `Dependent Variable`,
+	- Method `Backward` allows JASP to prune useless independent variables
+	- then put independent variables in `Covariates`, *NOT* `Factors`
+- in Model, confirm independent variables are in Model 0
+	- set `Include intercept`
+- in Statistics, set
+	- Model Summary: R squared change, F change
+	- Coeffient: Estimates, 95% Confidence intervals
+	- Display: Model fit, Descriptives, Regression equation
+- in Method Specification
+	- Use p value
+- in Plots
+	- Residuals vs. dependent
