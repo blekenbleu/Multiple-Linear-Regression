@@ -1,4 +1,4 @@
-#### Compared to [JASP](https://jasp-stats.org/getting-started/) - *13 May 2026*
+#### [JASP](https://jasp-stats.org/getting-started/) multiple linear regression - *13 May 2026*
 In JASP top row, chose Regression, then Classical -> Linear Regression
 - in Linear Regression window, put one variable in `Dependent Variable`,
 	- Method `Backward` allows JASP to prune useless independent variables
