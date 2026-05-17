@@ -9,7 +9,7 @@ between a 'dependent' variable and several 'independent' variables.
 For photomicography, instead of fitting [high order polynomials](https://github.com/blekenbleu/CorrCA)
 or [cubic with radial symmetry](https://lensfun.github.io/calibration-tutorial/lens-tca.html),  
 consider multiple linear regression, replacing its linear kernel with a bicubic:  
- &emsp; `CAxy = a + b*x + c*x*x + d*x*x*x + e*y + f*y*y + g*y*y*y + h*abs(y*x)`
+ &emsp; `CAxy = C0 + C1*x + C2*x*x + C3*x*x*x + C4*y + C5*y*y + C6*y*y*y`
 
 While more complex than [typical radially symmetric Transverse Chromatic
 Aberration](https://lensfun.github.io/calibration-tutorial/lens-tca.html) (TCA) models:  
@@ -51,4 +51,6 @@ Model statistics are then calculated for significance and accuracy of this relat
 ```
 ...*after pressing* `enter`, [statistics are generated and displayed](data/health_data_stats.txt)
 
-#### Compared to [JASP](JASP.md) - *13 May 2026*
+*9 May 2026* **generate [gnuplot](data/Before_redefine.gp)**  
+*13 May 2026* **Compared to [JASP](JASP.md)**  
+*17 May* **begin exporting to [CorrCA](https://github.com/blekenbleu/CorrCA/blob/PPM/)**
