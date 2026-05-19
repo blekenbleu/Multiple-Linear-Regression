@@ -146,33 +146,38 @@ Matrix genCoefficients(Matrix x, Matrix y, Matrix xtrans)
   return B;
 }
 
-// Yhat are Model (estimated) solutions, applying estimated coefficients toindependent data
-// *errStdDev is sqrt((sum of (differences from mean)**2) / (y.rows - 1)) 
-Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double *errStdDev)
+// Yhat are Model (estimated) solutions, applying estimated coefficients to independent data
+// *variance is sum of (differences from mean)**2
+// independent variable errStdDev is sqrt(variance / (y.rows - x.cols - 1)) 
+Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double *variance)
 {
   int i;
-  double sum = 0;
+  *variance = 0;
   Matrix result = initMatrix(y.rows, 1);
 
   for(i = 0; i < y.rows; i++)
   {
     result.data[i] = y.data[i] - Yhat.data[i];
-    sum += result.data[i] * result.data[i];
+    *variance += result.data[i] * result.data[i];
   }
 
   // stdDev for the Model
-  *errStdDev = sqrt(sum / (result.rows - x.cols - 1));
+  // sqrt(variance / (result.rows - x.cols));
 
   return result;
 }
 
-Matrix stdErr(Matrix x, double errStdDev, Matrix xtrans)
+Matrix stdErr(Matrix x, double variance, Matrix xtrans)
 {
   Matrix x2, result = inverseMatrix(x2 = multiMatrix(xtrans, x));
 
-  double *r = result.data, est = errStdDev * errStdDev;
-  for(double *z = r + x.cols * x.cols; r < z; r++)
+  double *z, *r = result.data, est = variance / (x.rows - x.cols - 1);
+  for(z = r + x.cols * (x.cols - 1); r < z; r++)
     *r *= est;
+
+  est = variance / (x.rows - x.cols);
+  for (z = result.data + x.cols * x.cols; r < z; r++)
+		*r *= est;
 
   free(x2.data);
   return result;

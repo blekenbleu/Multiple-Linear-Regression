@@ -24,7 +24,7 @@ int gpdata(FILE *fp, char **varNames, int columns, int gp, Matrix *x, Matrix *y)
 		(double*)calloc(gp, sizeof(double))
 	};
 	double  *dp[4] = { dd[0],dd[1], dd[2], dd[3] },
-			*xp = x->data = (double*)calloc(gp * 7, sizeof(double)),
+			*xp = x->data = (double*)calloc(7 * (size_t)gp, sizeof(double)),
 			d0, d1, d2, d3, d4, d5;
 
 	if (NULL == xp || NULL == dd[0] || NULL == dd[1] || NULL == dd[2] || NULL == dd[3])

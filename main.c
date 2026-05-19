@@ -24,14 +24,14 @@ static double mean(Matrix m, unsigned int column)
 static Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
 {
   int i, j;
-  double errStdDev = 0;
+  double variance = 0;
   double yMean = mean(y, 0);
   Matrix xtrans = transMatrix(x);
   Matrix B = genCoefficients(x, y, xtrans); // B.rows = x.cols; B.cols = y.cols = 1
   Matrix Yhat = multiMatrix(x, B);	//  y estimates
-  // errStdDev = sqrt(sum((y-Yhat)**2)) / (result.rows - x.cols));
-  Matrix residuals = calcResiduals(x, y, Yhat, &errStdDev);
-  Matrix stdErrMatrix = stdErr(x, errStdDev, xtrans);
+  // variance = sum((y-Yhat)**2)
+  Matrix residuals = calcResiduals(x, y, Yhat, &variance);
+  Matrix stdErrMatrix = stdErr(x, variance, xtrans);
   // predicted values:  x.rows by B.cols = 1
   Metrics modelMetrics = { 0 };
   
@@ -200,7 +200,7 @@ static void vnprint(char *varName)
 {
 	printf("\n ");
 	size_t l = strlen(varName);
-	for(int j = 0; j < 8; j++)
+	for(int j = 0; j < 9; j++)
 	  printf("%c", j < l ? varName[j] : ' '); 
 }
 
@@ -218,22 +218,22 @@ static void printModel(char *varNames[10], Matrix x, Matrix y)
   printf("\nRegression Model Equation:  significant Coef. if |t-value| > critial\n%s = %.2lf",
 	varNames[0], coefficientMetrics[x.cols * 6 - 6]);
   for(int i = 1, j = 0; i < x.cols; i++, j += 6)
-	printf(" %+.2lf %s",coefficientMetrics[j], varNames[i]);
-  printf(";  RMS error = %.2lf", modelMetrics.RMSE);
+	printf(" %+.3lf %s",coefficientMetrics[j], varNames[i]);
+  printf(";  RMS error = %.3lf", modelMetrics.RMSE);
 
   /*
    * Print model metrics
    */
   printf("\n\n Source    |  Sum of       dof  Mean      0.05 significance, %d observations", x.rows);
-  printf("\n           |  Squares           Squares                  F(%d, %d) = %6.5g",
+  printf("\n           |  Squares           Squares                  F(%d, %d) = %.0lf",
     x.cols - 1, x.rows - x.cols, modelMetrics.F);
   printf("\n-----------+------------------------------               F p-value     =  %6.4lf", modelMetrics.p_value);
-  printf("\n Model     |  %10.9g %5d  %10.9g       significant if 0.05 > F p-value",
+  printf("\n Model     |  %10.3lf %5d  %10.3lf       significant if 0.05 > F p-value",
    modelMetrics.SSR, x.cols - 1, modelMetrics.SSR/(x.cols - 1));
-  printf("\n Residuals |  %10.9g %5d  %10.9g               R-squared     =  %6.4lf",
+  printf("\n Residuals |  %10.3lf %5d  %10.3lf               R-squared     =  %6.3lf",
    modelMetrics.RSS, x.rows - x.cols, modelMetrics.RMS, modelMetrics.R2);
-  printf("\n-----------+------------------------------               Adj R-squared =  %6.4lf", modelMetrics.AR2);
-  printf("\n Total     |  %10.9g %5d  %10.9g               Root RSS      =  %6.5g",
+  printf("\n-----------+------------------------------               Adj R-squared =  %6.3lf", modelMetrics.AR2);
+  printf("\n Total     |  %10.3lf %5d  %10.3lf               Root RSS      =  %6.3lf",
    modelMetrics.TSS, x.rows - 1, modelMetrics.TSS/(x.rows - 1), sqrt(modelMetrics.RSS));
 
   /*
@@ -242,18 +242,15 @@ static void printModel(char *varNames[10], Matrix x, Matrix y)
   char *s, **vn = varNames;
   printf(s = "\n-----------+--------------------------------------------------------------------");
   vnprint(*vn++);
-  printf("  |      Coef.   Std. Err.   t-value critical      [95%% Conf. Interval]%s", s);
+  printf(" |      Coef.   Std. Err.   t-value critical      [95%% Conf. Interval]%s", s);
   for (int k = 0; k < x.cols; k++)
   {
-	vnprint(k == x.cols - 1 ? "Const" : *vn++);
+	vnprint(k == x.cols - 1 ? "Intercept" : *vn++);
 	int j = k * 6;
-	printf("  |%11.7g %11.7g %9.5g  %4.3lf  %13.7g  %10.7g",
+	printf(" |%11.3lf %11.3lf %9.2lf  %4.3lf  %13.3lf  %10.3lf",
 	  coefficientMetrics[j],  coefficientMetrics[j+1], coefficientMetrics[j+2],
 	  coefficientMetrics[j+3],  coefficientMetrics[j+4],  coefficientMetrics[j+5]);
   }
-  vnprint("Model");
-  printf("  |%11.7g %11.7g %8.4g  %4.3lf",
-	modelMetrics.Mest, modelMetrics.SEE, modelMetrics.Mtv, critical_value(x.rows - x.cols));
   printf(s);
 }
 
