@@ -25,6 +25,9 @@ extern Matrix genCoefficients(Matrix x, Matrix y, Matrix xtrans);
 extern Matrix calcResiduals(Matrix x, Matrix y, Matrix Yhat, double * errStdDev);
 extern Matrix stdErr(Matrix x, double errStdDev, Matrix xtrans);
 
+// load gnuplottable comma-separated data
+extern int gpdata(FILE *fp, char **varNames, int columns, int gp, Matrix *x, Matrix *y);
+
 //Inverse matrix functions from: http://scanftree.com/programs/c/c-program-to-find-the-inverse-of-the-matrix/
 extern double determinant(double[25][25], double);
 extern void cofactors(double[25][25], double);

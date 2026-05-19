@@ -21,7 +21,7 @@ static double mean(Matrix m, unsigned int column)
 	return sum / m.rows;
 }
 
-Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
+static Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
 {
   int i, j;
   double errStdDev = 0;
@@ -143,74 +143,6 @@ Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
   return modelMetrics;
 }
 
-static Matrix gpdata(FILE *fp, Matrix data, unsigned int col)
-{
-	return data;
-}
-
-char varString[100];
-static Matrix readData(FILE *fp, char *varNames[10])
-{
-  int i = fscanf(fp, "%[^\n]", varString);
-  varString[99] = '\0';
-  Matrix read = {0};
-  int j, columns;
-  size_t l = strlen(varString);
-
-  if (7 < l && 0 == strncmp("# rows ", varString, 7)) // intercept gnuplot data
-  {
-	char *endptr;
-	read.rows = strtol(7 + varString, &endptr, 10);
-
-	if ('\0' != endptr)
-	{
-		read.cols = 8;
-		strcpy(varNames[0], "Rd");	// dependent variable: R or B center delta
-		strcpy(varNames[1], "Gx");	// only truly independent variables are Gx and Gy
-		strcpy(varNames[2], "Gx2");	// others are not LINEARLY independent... 
-		strcpy(varNames[3], "Gx3");
-		strcpy(varNames[4], "Gy");
-		strcpy(varNames[5], "Gy2");
-		strcpy(varNames[6], "Gy3");
-		strcpy(varNames[7], "Gxy");
-		
-		return gpdata(fp, read, 2);	// 2 - 5 are columns for Rdx - Bdy
-	}
-  }
-
-  for(columns = i = j = 0; i <= l; i++)
-	if(varString[i] == ',' || varString[i] == '\0')
-	{
-		varString[i] = '\0';	
-  		varNames[columns++] = j + varString;
-		j = 1 + i;		// next varNames
-	}
-
-  int size = 100;
-  double tempDouble;
-  read.data = malloc(sizeof(double) * size);
-  if(read.data != NULL)
-  for (i = 0; fscanf(fp,"%lf,", &tempDouble) != EOF; i++) {
-	if(i >= size - 1) {
-	  size += 100;
-	  double *more = realloc(read.data, size * sizeof(double));
-	  if (NULL == more)
-	  {
-		  free(read.data);
-		  exit(1);
-	  } else {
-		read.data = more;
-		read.data[i] = tempDouble;
-	  }
-	} else read.data[i] = tempDouble;
-  } else exit(1);
-
-  read.rows = i / columns;		// rows
-  read.cols = columns;
-
-  return read;
-}
-
 static void loadXY(Matrix *data, Matrix *x, Matrix *y)
 {
   size_t size = x->rows = y->rows = data->rows;
@@ -229,6 +161,39 @@ static void loadXY(Matrix *data, Matrix *x, Matrix *y)
 	for (double *z = x_pt + data->cols - 1; x_pt < z; x_pt++)
 		*x_pt = foo = *data_pt++;
   }
+}
+
+static int readData(FILE *fp, char *varNames[10], int columns, Matrix *x, Matrix *y)
+{
+  int i, size = 100;
+  double tempDouble;
+  Matrix read = {0};
+
+  read.data = malloc(sizeof(double) * size);
+  if(read.data == NULL)
+	return 0;
+
+  for (i = 0; fscanf(fp,"%lf,", &tempDouble) != EOF; i++) {
+	if(i >= size - 1) {
+	  size += 100;
+	  double *more = realloc(read.data, size * sizeof(double));
+	  if (NULL == more)
+	  {
+		  free(read.data);
+		  exit(1);
+	  } else {
+		read.data = more;
+		read.data[i] = tempDouble;
+	  }
+	} else read.data[i] = tempDouble;
+  }
+
+  read.rows = i / columns;		// rows
+  read.cols = columns;
+
+  loadXY(&read, x, y);
+  free(read.data);
+  return 1;
 }
 
 static void vnprint(char *varName)
@@ -294,46 +259,72 @@ static void printModel(char *varNames[10], Matrix x, Matrix y)
 
 int main(int argc, char **argv)
 {
-  char *fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1];
-//char *fin = (1 == argc) ? "../../../data/Before_redefine.gp" : argv[1];
+//char *fin = (1 == argc) ? "../../../data/health_data.txt" : argv[1];
+  char *fin = (1 == argc) ? "../../../data/Before_redefineG.txt" : argv[1];
 
   FILE *text = fopen(fin, "r");
   if(text == NULL)
-	return printf("Unable to open data file '%s'.", fin);
+	return - printf("Unable to open data file '%s'.", fin);
 
-  char *varNames[10];
-  Matrix data = readData(text, varNames);
+  char *varNames[10] = {""};
+  char varString[100];
+  int j, columns, gp = 0;
+  int i = fscanf(text, "%[^\n]", varString);
+  varString[99] = '\0';
+  size_t l = strlen(varString);
 
-  if (NULL == data.data)
-{
-  printf("******************************************************************************\n");
-  printf("*                                                                            *\n");
-  printf("* Title: Multiple Linear Regression                                          *\n");
-  printf("* Description:  This program takes an inputted data file and performs        *\n");
-  printf("*               multiple linear regression analysis on the data.             *\n");
-  printf("* Author:       Oscar Zealley                                                *\n");
-  printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
-  printf("*               this program. Data must be formatted like this:              *\n");
-  printf("*                                                                            *\n");
-  printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
-  printf("*                   4,                      5,                    8,...      *\n");
-  printf("*                   7,                     12,                    5,...      *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                   .                       .                     .          *\n");
-  printf("*                                                                            *\n");
-  printf("* NB: Max number of variables is 10.                                         *\n");
-  printf("*                                                                            *\n");
-  printf("* Press enter for sample data statistics.                                    *\n");
-  printf("*                                                                            *\n");
-  printf("******************************************************************************\n");
-  
-  char response = getchar();
-	  return -1;
-}
+  if (7 < l && 0 == strncmp("# rows ", varString, 7)) // intercept gnuplot data
+  {
+	char *endptr;
+	gp = strtol(7 + varString, &endptr, 10);
+	fgets(varString, 98, text);				// pop that first line
+	// next line should be parm names:
+	// xG,yG,dxR,dyR,dxB,dyB,xG2,yG2,xG3,yG3
+	i = fscanf(text, "%[^\n]", varString);
+	varString[99] = '\0';
+	l = strlen(varString);
+  }
+
+  for(columns = i = j = 0; i <= l; i++)
+	if(varString[i] == ',' || varString[i] == '\0')
+	{
+		varString[i] = '\0';	
+  		varNames[columns++] = j + varString;
+		j = 1 + i;		// next varNames
+	}
+
 
   Matrix x = {0}, y = {0};
-  loadXY(&data, &x, &y);
-  free(data.data);
+  if (0 < gp)
+	gpdata(text, varNames, columns, gp, &x, &y);
+  else readData (text, varNames, columns, &x, &y);
+
+  if (NULL == x.data)
+  {
+	printf("******************************************************************************\n");
+	printf("*                                                                            *\n");
+	printf("* Title: Multiple Linear Regression                                          *\n");
+	printf("* Description:  This program takes an inputted data file and performs        *\n");
+	printf("*               multiple linear regression analysis on the data.             *\n");
+	printf("* Author:       Oscar Zealley                                                *\n");
+	printf("* Instructions: Put your data in a .txt file in the same directory as        *\n");
+	printf("*               this program. Data must be formatted like this:              *\n");
+	printf("*                                                                            *\n");
+	printf("*  Dependent Variable, Independent Variable 1, Indendent Variable 2,...      *\n");
+	printf("*                   4,                      5,                    8,...      *\n");
+	printf("*                   7,                     12,                    5,...      *\n");
+	printf("*                   .                       .                     .          *\n");
+	printf("*                   .                       .                     .          *\n");
+	printf("*                                                                            *\n");
+	printf("* NB: Max number of variables is 10.                                         *\n");
+	printf("*                                                                            *\n");
+	printf("* Press enter for sample data statistics.                                    *\n");
+	printf("*                                                                            *\n");
+	printf("******************************************************************************\n");
+
+	char response = getchar();
+	  return -1;
+  }
 
   printModel(varNames, x, y);
   
