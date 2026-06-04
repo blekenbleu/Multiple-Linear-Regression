@@ -32,6 +32,15 @@ static Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
   // variance = sum((y-Yhat)**2)
   Matrix residuals = calcResiduals(x, y, Yhat, &variance);
   Matrix stdErrMatrix = stdErr(x, variance, xtrans);
+  double *m = stdErrMatrix.data;
+  printf("stdErrmatrix\n");
+  for (i = 0; i < stdErrMatrix.rows; i++)
+  {
+	printf("%7.4f %7.4f %7.4f %7.4f %7.4f %7.4f %7.4f\n",
+			m[0], m[1], m[2], m[3], m[4], m[5], m[6]);
+	m += 7;
+  }
+
   // predicted values:  x.rows by B.cols = 1
   Metrics modelMetrics = { 0 };
   
@@ -93,12 +102,15 @@ static Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
   i = 0; //Track metric in the Coefficent Metric array
 
   //Non constant variables
+  printf("stdErrmatrix for t-value\n");
+  double d;
   for(j = 1; j < x.cols; j++) {	// independent variable
 	// Model coefficient
 	coefficientMetrics[i] = B.data[j];
 	i++;
 	//Standard error for regression coefficients 
-	coefficientMetrics[i] = sqrt(stdErrMatrix.data[j * x.cols + j]);
+	coefficientMetrics[i] = sqrt(d = stdErrMatrix.data[j * x.cols + j]);
+    printf("[% d, % d]: % .4f ", j, j, d);
 	i++;
 	//t test statistic
 	coefficientMetrics[i] = coefficientMetrics[i-2] / (coefficientMetrics[i-1]);
@@ -113,6 +125,7 @@ static Metrics regress(Matrix x, Matrix y, double *coefficientMetrics)
 	coefficientMetrics[i] = coefficientMetrics[i-5] + 1.96 * coefficientMetrics[i-4];
 	i++;
   }
+  printf("\n");
 
   //Constant
   j = 0;
